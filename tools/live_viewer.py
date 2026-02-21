@@ -1,6 +1,6 @@
 import json
 import socket
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 import pygame
 

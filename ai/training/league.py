@@ -6,6 +6,7 @@ from typing import Dict
 from ai.env.neon_env import NeonFootballEnv
 from ai.training.self_play import SelfPlayManager
 from sim.core.rng import DeterministicRNG
+from sim.core.state import TeamID
 
 
 class EloSystem:
