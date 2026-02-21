@@ -17,7 +17,7 @@ def test_env_smoke():
         action = env.action_space.sample()
         obs, reward, terminated, truncated, info = env.step(action)
 
-        assert obs.shape == (88,)
+        assert obs.shape == (64,)
         assert isinstance(reward, float)
         assert isinstance(terminated, bool)
         assert isinstance(truncated, bool)
