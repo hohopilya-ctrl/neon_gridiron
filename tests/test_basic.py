@@ -1,7 +1,8 @@
-import pytest
 import numpy as np
+
 from sim.core.physics import PhysicsEngine
 from sim.core.rng import DeterministicRNG
+
 
 def test_physics_engine_init():
     """Verify that the physics engine initializes without crashing."""
@@ -12,6 +13,7 @@ def test_physics_engine_init():
 
 from ai.env.neon_env import NeonFootballEnv
 from sim.core.state import TeamID
+
 
 def test_env_step():
     """Verify standard step logic in Gymnasium environment."""
@@ -25,6 +27,7 @@ def test_env_step():
 
     assert not np.isnan(reward)
     assert obs.shape == (64,)
+
 
 def test_team_assignment():
     """Verify that players are assigned to correct teams."""

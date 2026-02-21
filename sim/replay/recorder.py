@@ -1,13 +1,16 @@
 import json
 import os
+
 from sim.core.state import MatchState
 from sim.serialization import SimulationEncoder
+
 
 class ReplayRecorder:
     """
     Professional streamable recorder for MatchState sequences.
     Writes in JSONL format for easy parsing and durability.
     """
+
     def __init__(self, output_path: str):
         self.output_path = output_path
         self.file = None
@@ -20,7 +23,7 @@ class ReplayRecorder:
         if self.file and state:
             snapshot = SimulationEncoder.to_dict(state)
             self.file.write(json.dumps(snapshot) + "\n")
-            self.file.flush() # Ensure durability for live debugging
+            self.file.flush()  # Ensure durability for live debugging
 
     def stop(self):
         if self.file:

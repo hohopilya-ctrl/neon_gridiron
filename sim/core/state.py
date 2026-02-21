@@ -1,8 +1,10 @@
 from __future__ import annotations
+
 from dataclasses import dataclass, field
+from enum import Enum
+from typing import Dict, List, Optional
+
 import numpy as np
-from typing import List, Dict, Optional, Literal
-from enum import Enum, auto
 
 
 class TeamID(Enum):

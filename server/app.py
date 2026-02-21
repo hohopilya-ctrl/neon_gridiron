@@ -1,12 +1,13 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from typing import List
-import asyncio
-import json
+
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 app = FastAPI(title="Neon Gridiron ULTRA: Telemetry Hub")
 
+
 class ConnectionManager:
     """Manages WebSocket connections for real-time state broadcasting."""
+
     def __init__(self):
         self.active_connections: List[WebSocket] = []
 
@@ -25,15 +26,19 @@ class ConnectionManager:
                 # Handle stale connections
                 pass
 
+
 manager = ConnectionManager()
+
 
 @app.get("/")
 async def root():
     return {"status": "online", "service": "neon-gridiron-telemetry"}
 
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}
+
 
 @app.websocket("/ws/state")
 async def websocket_endpoint(websocket: WebSocket):

@@ -1,7 +1,3 @@
-from typing import List, Dict
-import numpy as np
-
-
 class LeagueMatchmaker:
     """
     Handles Elo/Glicko ratings and matchmaking for the agent population.

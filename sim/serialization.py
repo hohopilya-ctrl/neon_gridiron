@@ -1,14 +1,17 @@
 import json
+from typing import Any, Dict
+
 import msgpack
-import numpy as np
-from typing import Any, Dict, Optional
-from sim.core.state import MatchState, TeamID
+
+from sim.core.state import MatchState
+
 
 class SimulationEncoder:
     """
     High-performance serialization for Neon Gridiron ULTRA match snapshots.
     Supports both JSON for debugging/logging and MsgPack for real-time telemetry.
     """
+
     @staticmethod
     def to_dict(state: MatchState) -> Dict[str, Any]:
         """Convert MatchState to a versioned flat structure."""
@@ -19,7 +22,7 @@ class SimulationEncoder:
             "b": {
                 "p": state.ball.pos.tolist(),
                 "v": state.ball.vel.tolist(),
-                "s": round(state.ball.spin, 3)
+                "s": round(state.ball.spin, 3),
             },
             "p": [
                 {
@@ -29,12 +32,12 @@ class SimulationEncoder:
                     "vel": p.vel.tolist(),
                     "stm": round(p.stamina, 2),
                     "en": round(p.energy, 1),
-                    "ht": round(p.heat, 1)
+                    "ht": round(p.heat, 1),
                 }
                 for p in state.players
             ],
             # Events truncated to type names for telemetry brevity
-            "e": [e.event_type for e in state.events]
+            "e": [e.event_type for e in state.events],
         }
 
     @staticmethod

@@ -1,17 +1,19 @@
-import numpy as np
-from typing import List, Optional, Dict
+from typing import Dict, List, Optional
+
 from sim.core.rng import DeterministicRNG
+
 
 class SelfPlayManager:
     """
     Manages a registry of model snapshots for competitive multi-agent training.
     Enforces deterministic opponent sampling.
     """
+
     def __init__(self, model_pool_dir: str, rng: DeterministicRNG):
         self.model_pool_dir = model_pool_dir
         self.rng = rng
         self.sampling_probs = {"latest": 0.5, "strong": 0.3, "random": 0.2}
-        self.registry: List[Dict] = [] # List of {path, elo, id}
+        self.registry: List[Dict] = []  # List of {path, elo, id}
 
     def add_to_pool(self, model_path: str, elo: float, model_id: str):
         self.registry.append({"path": model_path, "elo": elo, "id": model_id})
@@ -20,7 +22,7 @@ class SelfPlayManager:
         """Select an opponent based on the current strategy."""
         if not self.registry:
             return None
-            
+
         r = self.rng.float()
         if r < self.sampling_probs["latest"]:
             return self.registry[-1]["path"]

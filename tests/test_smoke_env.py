@@ -1,6 +1,5 @@
-import gymnasium as gym
 import numpy as np
-import pytest
+
 from ai.env.neon_env import NeonFootballEnv
 
 

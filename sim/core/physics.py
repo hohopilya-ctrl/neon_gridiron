@@ -1,7 +1,8 @@
-import pymunk
+from typing import Dict, Optional, Tuple
+
 import numpy as np
-from typing import List, Dict, Tuple, Optional
-from sim.core.state import PlayerState, BallState, TeamID
+import pymunk
+
 from sim.core.rng import DeterministicRNG
 
 

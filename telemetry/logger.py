@@ -1,7 +1,5 @@
-import socket
 import json
-import os
-import numpy as np
+import socket
 
 from sim.serialization import SimulationEncoder
 
@@ -18,7 +16,7 @@ class UDPSender:
             state_dict = SimulationEncoder.to_dict(state)
             if extra_data:
                 state_dict.update(extra_data)
-                
+
             payload = json.dumps(state_dict).encode("utf-8")
 
             for port in self.target_ports:

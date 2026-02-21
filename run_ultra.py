@@ -1,8 +1,8 @@
 import subprocess
 import sys
 import time
-import signal
 from pathlib import Path
+
 
 def launch():
     print("🚀 N E O N  G R I D I R O N  U L T R A")
@@ -20,8 +20,18 @@ def launch():
         # 1. Start Telemetry Bridge (FastAPI)
         print("[1/3] Starting API Server...")
         p_api = subprocess.Popen(
-            [sys.executable, "-m", "uvicorn", "server.app:app", "--host", "127.0.0.1", "--port", "8000"],
-            cwd=root, **kwargs
+            [
+                sys.executable,
+                "-m",
+                "uvicorn",
+                "server.app:app",
+                "--host",
+                "127.0.0.1",
+                "--port",
+                "8000",
+            ],
+            cwd=root,
+            **kwargs,
         )
         processes.append(p_api)
 
@@ -30,23 +40,17 @@ def launch():
 
         # 2. Start Training Engine
         print("[2/3] Starting RL Training Engine...")
-        p_train = subprocess.Popen(
-            [sys.executable, "-m", "ai.training.league"],
-            cwd=root, **kwargs
-        )
+        p_train = subprocess.Popen([sys.executable, "-m", "ai.training.league"], cwd=root, **kwargs)
         processes.append(p_train)
 
         # 3. Start Live Viewer (Pygame)
         print("[3/3] Starting Live Viewer...")
-        p_view = subprocess.Popen(
-            [sys.executable, "tools/live_viewer.py"],
-            cwd=root, **kwargs
-        )
+        p_view = subprocess.Popen([sys.executable, "tools/live_viewer.py"], cwd=root, **kwargs)
         processes.append(p_view)
 
         print("\n✅ ULTRA STACK DEPLOYED.")
         print("Monitor logs in separate sessions.")
-        
+
         # Keep alive and monitor
         while True:
             time.sleep(1)
@@ -60,6 +64,7 @@ def launch():
         for p in processes:
             p.terminate()
         sys.exit(0)
+
 
 if __name__ == "__main__":
     launch()
