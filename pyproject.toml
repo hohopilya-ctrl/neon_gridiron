@@ -8,10 +8,14 @@ version = "0.3.0"
 description = "Professional 7v7 Futuristic Football MARL Platform"
 readme = "README.md"
 requires-python = ">=3.12"
-license = {text = "MIT"}
+license = "MIT"
 authors = [
     {name = "Antigravity", email = "ai@google.com"}
 ]
+
+[tool.setuptools.packages.find]
+include = ["sim*", "ai*", "server*", "telemetry*"]
+exclude = ["ui*", "patches*", "liveops*", "schemas*", "configs*", "godot_client*", "tests*"]
 dependencies = [
     "numpy>=1.26.0",
     "pymunk>=6.6.0",
