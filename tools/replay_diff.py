@@ -12,7 +12,7 @@ def compare_replays(file1: str, file2: str):
     print(f"🧐 Comparing Divergence:\n  1: {file1}\n  2: {file2}")
 
     with open(file1, "r") as f1, open(file2, "r") as f2:
-        for i, (line1, line2) in enumerate(zip(f1, f2)):
+        for i, (line1, line2) in enumerate(zip(f1, f2, strict=False)):
             d1 = json.loads(line1)
             d2 = json.loads(line2)
 
@@ -28,7 +28,7 @@ def compare_replays(file1: str, file2: str):
                 return False
 
             # Check player drift
-            for p_idx, (p1_data, p2_data) in enumerate(zip(d1["p"], d2["p"])):
+            for _, (p1_data, p2_data) in enumerate(zip(d1["p"], d2["p"], strict=False)):
                 pos1 = np.array(p1_data["pos"])
                 pos2 = np.array(p2_data["pos"])
                 if not np.allclose(pos1, pos2, atol=1e-6):

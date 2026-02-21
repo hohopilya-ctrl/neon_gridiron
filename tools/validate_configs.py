@@ -16,7 +16,7 @@ def validate():
 
         with open(path, "r") as stream:
             try:
-                data = yaml.safe_load(stream)
+                yaml.safe_load(stream)
                 print(f"OK: {f} is valid YAML")
             except Exception as e:
                 print(f"FAIL: {f} syntax error: {e}")
