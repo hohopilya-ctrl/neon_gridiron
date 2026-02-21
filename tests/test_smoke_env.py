@@ -9,7 +9,7 @@ def test_env_smoke():
     env = NeonFootballEnv({"seed": 42})
     obs, info = env.reset()
 
-    assert obs.shape == (88,)
+    assert obs.shape == (64,)
     assert isinstance(obs, np.ndarray)
 
     # Take 5 steps with random actions
