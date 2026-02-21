@@ -93,5 +93,7 @@ class PhysicsEngine:
         return np.array(body.position), np.array(body.velocity)
 
     def get_ball_data(self) -> Tuple[np.ndarray, np.ndarray]:
-        body, _ = self.ball_elements
+                if self.ball_elements is None:
+                                return np.zeros(2), np.zeros(2)
+                            body, _ = self.ball_elements
         return np.array(body.position), np.array(body.velocity)
