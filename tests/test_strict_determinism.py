@@ -5,8 +5,8 @@ from ai.env.neon_env import NeonFootballEnv
 def test_strict_determinism():
     """Verify that two environments with the same seed produce exactly the same states."""
     seed = 12345
-    env1 = NeonFootballEnv(seed=seed)
-    env2 = NeonFootballEnv(seed=seed)
+    env1 = NeonFootballEnv({"seed": seed})
+    env2 = NeonFootballEnv({"seed": seed})
     
     obs1, _ = env1.reset()
     obs2, _ = env2.reset()
@@ -27,7 +27,7 @@ def test_strict_determinism():
         
 def test_seed_reset():
     """Verify that resetting with the same seed reproduces the same trajectory."""
-    env = NeonFootballEnv(seed=777)
+    env = NeonFootballEnv({"seed": 777})
     
     # Run 1
     env.reset(seed=777)

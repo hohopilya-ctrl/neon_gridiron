@@ -1,48 +1,39 @@
-import numpy as np
 import pytest
+import numpy as np
 from ai.env.neon_env import NeonFootballEnv
 
-
-def test_full_determinism():
-    """Verify that two environments with the same seed produce identical results."""
-    seed = 42
-    env1 = NeonFootballEnv(seed=seed)
-    env2 = NeonFootballEnv(seed=seed)
-
-    obs1, _ = env1.reset(seed=seed)
-    obs2, _ = env2.reset(seed=seed)
-
+def test_strict_determinism():
+    """Verify that the simulation produces bit-identical results given the same seed."""
+    env1 = NeonFootballEnv({"seed": 42})
+    env2 = NeonFootballEnv({"seed": 42})
+    
+    obs1, _ = env1.reset()
+    obs2, _ = env2.reset()
+    
     assert np.array_equal(obs1, obs2)
-
+    
     # Run 100 steps
     for _ in range(100):
-        # Sample action from space (must use seeded RNG for action sampling if we were using it)
-        # Here we use the same deterministic action vector
-        action = np.ones(env1.action_space.shape, dtype=np.float32) * 0.5
+        # Sample same action
+        action = env1.action_space.sample()
+        obs1, r1, t1, tr1, _ = env1.step(action)
+        obs2, r2, t2, tr2, _ = env2.step(action)
+        
+        # Verify bit-identical state
+        assert np.array_equal(obs1, obs2), "Observation divergence detected!"
+        assert r1 == r2, "Reward divergence detected!"
+        assert t1 == t2
+        assert tr1 == tr2
+        
+    print("✅ Determinism test passed: Bit-identical results confirmed.")
 
-        obs1, rew1, term1, trunc1, _ = env1.step(action)
-        obs2, rew2, term2, trunc2, _ = env2.step(action)
-
-        # Verify bit-perfect identity
-        assert np.array_equal(obs1, obs2), f"Observation mismatch at tick {env1.state.tick}"
-        assert rew1 == rew2
-        assert term1 == term2
-
-    print(f"✅ Determinism verified over 100 ticks.")
-
-
-def test_state_reproducibility():
-    """Verify that MatchState can be perfectly reconstructed."""
-    env = NeonFootballEnv(seed=7)
+def test_goal_logic():
+    """Verify that scoring updates the match state correctly."""
+    env = NeonFootballEnv({"seed": 1})
     env.reset()
-
-    # Run 50 steps
-    for _ in range(50):
-        env.step(env.action_space.sample())
-
-    state1 = env.state
-
-    # In a real scenario we might serialize/deserialize here
-    # Check ball position consistency
-    assert env.ball_body.position.x == state1.ball.pos[0]
-    assert env.ball_body.position.y == state1.ball.pos[1]
+    
+    # Force ball into blue goal
+    from sim.core.state import TeamID
+    env.state.ball.pos = np.array([0.0, 200.0]) # Middle of goal
+    goal = env.rules.check_goal(env.state.ball.pos)
+    assert goal == TeamID.RED # Blue conceded

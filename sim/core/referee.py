@@ -1,46 +1,42 @@
-from typing import List, Dict
+from typing import List, Dict, Optional
+import numpy as np
+from sim.core.state import PlayerState, TeamID
 from sim.core.events import MatchEvent
-from sim.core.state import MatchState
-
 
 class Referee:
     """
-    Manages fouls, penalty points, and cards using MatchEvent protocol.
+    Manages fair play, fouls, and penalty cards.
+    Tracks player aggression and enforces discipline.
     """
+    def __init__(self, foul_threshold: float = 15.0):
+        self.foul_threshold = foul_threshold
+        self.penalty_points: Dict[str, float] = {} # player_id -> cumulative_points
+        self.cards: Dict[str, List[str]] = {} # player_id -> ["YELLOW", "RED"]
 
-    def __init__(self, config: dict):
-        self.config = config
-        self.foul_threshold = config.get("foul_threshold", 10.0)
-        self.penalty_history = {}  # actor_id -> points
-
-    def process_collision(
-        self, actor_id: str, target_id: str, impulse: float, tick: int
-    ) -> List[MatchEvent]:
+    def process_collision(self, actor_id: str, target_id: str, impulse: float, tick: int) -> List[MatchEvent]:
+        """Analyze a physical collision for foul potential."""
         events = []
         if impulse > self.foul_threshold:
-            self.penalty_history[actor_id] = self.penalty_history.get(actor_id, 0) + (
-                impulse / 10.0
-            )
-            events.append(
-                MatchEvent(
-                    event_id=f"foul_{tick}_{actor_id}",
-                    tick=tick,
-                    event_type="FOUL",
-                    actor_id=actor_id,
-                    target_id=target_id,
-                    params={"severity": impulse},
-                )
-            )
+            # Calculate penalty logic (e.g., from collision severity)
+            points = (impulse - self.foul_threshold) / 2.0
+            self.penalty_points[actor_id] = self.penalty_points.get(actor_id, 0.0) + points
+            
+            events.append(MatchEvent(
+                event_id=f"foul_{tick}_{actor_id}",
+                tick=tick,
+                event_type="FOUL",
+                actor_id=actor_id,
+                target_id=target_id,
+                params={"severity": impulse}
+            ))
 
-            # Card logic
-            score = self.penalty_history[actor_id]
-            if score > 50 and score < 100:
+            # Disciplinary checks
+            cumulative = self.penalty_points[actor_id]
+            if cumulative > 40.0 and actor_id not in self.cards:
+                self.cards[actor_id] = ["YELLOW"]
                 events.append(MatchEvent(f"y_{tick}", tick, "YELLOW", actor_id))
-            elif score >= 100:
+            elif cumulative > 100.0 and "RED" not in self.cards.get(actor_id, []):
+                self.cards.setdefault(actor_id, []).append("RED")
                 events.append(MatchEvent(f"r_{tick}", tick, "RED", actor_id))
-
+                
         return events
-
-    def check_var(self, event: MatchEvent) -> bool:
-        """Probabilistic VAR check for high-stakes fouls."""
-        return event.event_type == "FOUL" and event.params.get("severity", 0) > 30.0

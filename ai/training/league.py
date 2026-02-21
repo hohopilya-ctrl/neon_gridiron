@@ -1,212 +1,76 @@
-import sys
 import time
-import os
 import json
-import numpy as np
-from typing import List, Dict, Optional
+import os
 from pathlib import Path
+from typing import Dict, List, Optional
+import numpy as np
 
 from ai.env.neon_env import NeonFootballEnv
-from telemetry.logger import UDPSender
-from sim.serialization import SimulationEncoder, SimulationRecorder
+from ai.training.self_play import SelfPlayManager
+from sim.core.rng import DeterministicRNG
 
-from stable_baselines3 import PPO
-from stable_baselines3.common.callbacks import BaseCallback
-
-
-class EloRating:
-    """Simple Elo rating implementation for agent strength tracking."""
-
-    def __init__(self, initial_elo: float = 1200.0, k_factor: float = 32.0):
-        self.rating = initial_elo
+class EloSystem:
+    def __init__(self, k_factor: float = 32.0):
         self.k = k_factor
 
-    def expected_score(self, opponent_elo: float) -> float:
-        return 1.0 / (1.0 + 10 ** ((opponent_elo - self.rating) / 400.0))
+    def calculate_new_ratings(self, player_elo: float, opponent_elo: float, result: float) -> float:
+        """result: 1.0 for win, 0.5 for draw, 0.0 for loss."""
+        expected = 1.0 / (1.0 + 10 ** ((opponent_elo - player_elo) / 400.0))
+        return player_elo + self.k * (result - expected)
 
-    def update(self, actual_score: float, opponent_elo: float):
-        expected = self.expected_score(opponent_elo)
-        self.rating += self.k * (actual_score - expected)
-
-
-class Matchmaker:
-    """Manages the pool of agents and match pairings."""
-
-    def __init__(self, model_pool_path: str = "models/pool"):
-        self.pool_path = Path(model_pool_path)
-        self.pool_path.mkdir(parents=True, exist_ok=True)
-        self.agents: Dict[str, EloRating] = {}
-        self._load_pool()
-
-    def _load_pool(self):
-        # Scan pool for existing models
-        for m_path in self.pool_path.glob("*.zip"):
-            name = m_path.stem
-            self.agents[name] = EloRating()
-            # If we had a metadata file with Elos, we'd load it here
-
-    def get_opponent(self, player_elo: float) -> Optional[str]:
-        """Returns the name of a suitable opponent from the pool."""
-        if not self.agents:
-            return None
-        # Select opponent with closest Elo (basic matchmaking)
-        best_opponent = min(
-            self.agents.keys(), key=lambda x: abs(self.agents[x].rating - player_elo)
-        )
-        return best_opponent
-
-    def add_snapshot(self, model, name: str, elo: float, metadata: dict = None):
-        path = self.pool_path / f"{name}.zip"
-        meta_path = self.pool_path / f"{name}.json"
+class LeagueEngine:
+    """
+    High-level manager for concurrent training and evaluation.
+    Tracks agent strength (Elo) and manages the competitive evolution.
+    """
+    def __init__(self, config: Dict):
+        self.config = config
+        self.rng = DeterministicRNG(seed=config.get("seed", 42))
+        self.self_play = SelfPlayManager("models/pool", self.rng)
+        self.elo = EloSystem()
         
-        model.save(str(path))
+        self.model_metadata: Dict[str, Dict] = {}
+        self._load_registry()
+
+    def _load_registry(self):
+        pool_path = Path("models/pool")
+        pool_path.mkdir(parents=True, exist_ok=True)
+        # Load existing .json metadata files
+
+    def run_evaluation(self, learner, opponent_path: str, num_episodes: int = 5) -> float:
+        """Evaluate learner against a specific snapshot."""
+        env = NeonFootballEnv({"seed": self.rng.integers(0, 1000000)})
+        total_score = 0.0
         
-        # Save metadata
-        info = {
-            "elo": elo,
-            "timestamp": time.time(),
-            "name": name,
-            "stats": metadata or {}
-        }
-        with open(meta_path, 'w') as f:
-            json.dump(info, f)
+        for _ in range(num_episodes):
+            obs, _ = env.reset()
+            done = False
+            while not done:
+                # Placeholder: Both teams same policy or heuristic
+                action, _ = learner.predict(obs)
+                obs, reward, terminated, truncated, info = env.step(action)
+                done = terminated or truncated
             
-        self.agents[name] = EloRating(initial_elo=elo)
-        print(f"📦 Snapshot saved: {name} (Elo: {elo:.0f})")
-
-class EvaluationHarness:
-    """Runs competitive matches between models to determine performance."""
-    def __init__(self, env: NeonFootballEnv):
-        self.env = env
-
-    def run_match(self, model1, model2_path: str, num_steps: int = 1000) -> float:
-        """
-        Runs a match between the current learner (model1) and a pool opponent (model2).
-        Returns the score from model1's perspective (1.0 win, 0.5 draw, 0.0 loss).
-        """
-        # Load opponent
-        model2 = PPO.load(model2_path)
-        
-        obs, _ = self.env.reset()
-        done = False
-        steps = 0
-        total_rewards = 0
-        
-        while not done and steps < num_steps:
-            # Simple assumption: model1 controls blue (0-6), model2 controls red (7-13)
-            # This requires Multi-Agent support in the env which is planned.
-            # For now, we simulate by alternating or observing the learner.
-            # In a true 1v1, we need both actions.
-            
-            # Placeholder: Learner vs Random/Heuristic until MA implementation
-            action1, _ = model1.predict(obs)
-            obs, reward, term, trunc, info = self.env.step(action1)
-            total_rewards += reward
-            done = term or trunc
-            steps += 1
-            
-        # Return win/loss based on goals (stored in info or env.state)
-        goals = self.env.state.score
-        if goals[0] > goals[1]: return 1.0
-        if goals[0] < goals[1]: return 0.0
-        return 0.5
-
-
-class TelemetryCallback(BaseCallback):
-    def __init__(self, env, sender, recorder=None, verbose=0):
-        super().__init__(verbose)
-        self.env = env
-        self.sender = sender
-        self.recorder = recorder
-
-    def _on_step(self) -> bool:
-        # Send telemetry
-        self.sender.send_state(self.env.state)
-        # Record frame for replay if enabled
-        if self.recorder:
-            self.recorder.record_frame(self.env.state)
-        return True
-
-
-def run_league():
-    print("🏆 N E O N  U L T R A  L E A G U E  E N G I N E")
-    print("---------------------------------------------")
-
-    config = {"physics": {"damping": 0.96}}
-    env = NeonFootballEnv(config)
-    sender = UDPSender()
-
-    # Optional: Setup Replay Recording for this training session
-    recorder = SimulationRecorder("replays/latest_training.jsonl")
-    recorder.start()
-
-    matchmaker = Matchmaker()
-
-    # Initialize PPO model
-    policy_kwargs = dict(net_arch=dict(pi=[256, 256], vf=[256, 256]))
-
-    # Try to load latest if exists
-    latest_path = "models/ultra_ppo_latest.zip"
-    if os.path.exists(latest_path):
-        print(f"🔄 Loading existing model: {latest_path}")
-        model = PPO.load(latest_path, env=env)
-    else:
-        model = PPO(
-            "MlpPolicy",
-            env,
-            verbose=1,
-            learning_rate=3e-4,
-            n_steps=512,
-            batch_size=64,
-            policy_kwargs=policy_kwargs,
-            tensorboard_log="./logs/ppo_neon/",
-        )
-
-    callback = TelemetryCallback(env, sender, recorder=recorder)
-
-    player_elo = EloRating(initial_elo=1500.0)  # Baseline for the learner
-
-    print(f"🚀 LEAGUE ACTIVE. Current Elo: {player_elo.rating:.0f}")
-
-    try:
-        gen = 0
-        while True:
-            gen += 1
-            print(f"\n--- Generation {gen} ---")
-
-            # 1. Train
-            model.learn(total_timesteps=10000, callback=callback, reset_num_timesteps=False)
-
-            # 2. Evaluation
-            opponent_name = matchmaker.get_opponent(player_elo.rating)
-            if opponent_name:
-                opp_path = matchmaker.pool_path / f"{opponent_name}.zip"
-                harness = EvaluationHarness(env)
-                print(f"⚔️ Evaluating against {opponent_name}...")
-                score = harness.run_match(model, str(opp_path))
+            final_score = env.state.score
+            if final_score[TeamID.BLUE] > final_score[TeamID.RED]:
+                total_score += 1.0
+            elif final_score[TeamID.BLUE] == final_score[TeamID.RED]:
+                total_score += 0.5
                 
-                # Update Elo
-                opp_elo = matchmaker.agents[opponent_name].rating
-                player_elo.update(score, opp_elo)
-                print(f"📊 Result: {'WIN' if score > 0.5 else 'LOSS' if score < 0.5 else 'DRAW'} | New Elo: {player_elo.rating:.0f}")
-            else:
-                player_elo.rating += 5 # Minimum growth without opponents
+        return total_score / num_episodes
 
-            # 3. Snapshot every 5 generations
-            if gen % 5 == 0:
-                matchmaker.add_snapshot(model, f"agent_gen_{gen}", player_elo.rating)
-                model.save("models/ultra_ppo_latest")
-
-    except KeyboardInterrupt:
-        print("\nShutdown requested. Saving artifacts...")
-        model.save("models/ultra_ppo_latest")
-        recorder.stop()
-        print("✅ Done.")
-
-
-if __name__ == "__main__":
-    # Ensure directories exist
-    Path("models/pool").mkdir(parents=True, exist_ok=True)
-    Path("replays").mkdir(parents=True, exist_ok=True)
-    run_league()
-# lines: 50
+    def save_snapshot(self, model, name: str, current_elo: float):
+        path = f"models/pool/{name}.zip"
+        meta_path = f"models/pool/{name}.json"
+        
+        model.save(path)
+        with open(meta_path, 'w') as f:
+            json.dump({
+                "name": name,
+                "elo": current_elo,
+                "timestamp": time.time(),
+                "metrics": {}
+            }, f)
+            
+        self.self_play.add_to_pool(path, current_elo, name)
+        print(f"🏆 League: New snapshot {name} saved with Elo {current_elo:.0f}")

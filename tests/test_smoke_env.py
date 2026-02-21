@@ -6,7 +6,7 @@ from ai.env.neon_env import NeonFootballEnv
 
 def test_env_smoke():
     """Verify that the environment can be initialized and stepped."""
-    env = NeonFootballEnv(seed=42)
+    env = NeonFootballEnv({"seed": 42})
     obs, info = env.reset()
 
     assert obs.shape == (88,)

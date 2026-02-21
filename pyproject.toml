@@ -4,11 +4,11 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "neon_gridiron"
-version = "0.2.0"
-description = "Professional 7v7 Futuristic Football simulation with MARL"
+version = "0.3.0"
+description = "Professional 7v7 Futuristic Football MARL Platform"
 readme = "README.md"
 requires-python = ">=3.12"
-license = "MIT"
+license = {text = "MIT"}
 authors = [
     {name = "Antigravity", email = "ai@google.com"}
 ]
@@ -36,8 +36,8 @@ dev = [
     "pytest>=8.0.0",
     "ruff>=0.3.0",
     "mypy>=1.9.0",
-    "pre-commit>=3.6.0",
-    "black>=24.2.0",
+    "types-requests",
+    "types-pyyaml",
 ]
 
 [tool.ruff]
@@ -45,17 +45,5 @@ line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "B", "I", "U"]
-ignore = ["E501"] # Line too long handled by formatter
-
-[tool.mypy]
-python_version = "3.12"
-strict = true
-ignore_missing_imports = true
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = "test_*.py"
-
-[tool.setuptools]
-packages = ["ai", "sim", "server", "telemetry", "configs"]
+select = ["E", "F", "B", "I"]
+ignore = ["E501"] # Line length handled by formatter

@@ -2,63 +2,45 @@ import json
 import msgpack
 import numpy as np
 from typing import Any, Dict, Optional
-from sim.core.state import MatchState, GameEvent, PlayerState, BallState
-
+from sim.core.state import MatchState, TeamID
 
 class SimulationEncoder:
-    """Handles professional serialization of simulation state and events."""
-
+    """
+    High-performance serialization for Neon Gridiron ULTRA match snapshots.
+    Supports both JSON for debugging/logging and MsgPack for real-time telemetry.
+    """
     @staticmethod
     def to_dict(state: MatchState) -> Dict[str, Any]:
-        """Convert MatchState to a JSON-serializable dictionary."""
+        """Convert MatchState to a versioned flat structure."""
         return {
-            "v": "2.0.0",
+            "v": "2.1.0",
             "t": state.tick,
-            "s": state.score,
-            "b": {"p": state.ball.pos.tolist(), "v": state.ball.vel.tolist(), "s": state.ball.spin},
+            "s": {str(k.name): v for k, v in state.score.items()},
+            "b": {
+                "p": state.ball.pos.tolist(),
+                "v": state.ball.vel.tolist(),
+                "s": round(state.ball.spin, 3)
+            },
             "p": [
                 {
                     "id": p.id,
-                    "t": p.team,
-                    "p": p.pos.tolist(),
-                    "v": p.vel.tolist(),
+                    "team": p.team.value,
+                    "pos": p.pos.tolist(),
+                    "vel": p.vel.tolist(),
                     "stm": round(p.stamina, 2),
+                    "en": round(p.energy, 1),
+                    "ht": round(p.heat, 1)
                 }
                 for p in state.players
             ],
-            "e": [
-                {"t": e.event_type.name, "tid": e.team_id, "pid": e.player_id, "meta": e.metadata}
-                for e in state.events
-            ],
+            # Events truncated to type names for telemetry brevity
+            "e": [e.event_type for e in state.events]
         }
 
     @staticmethod
-    def encode_msgpack(state: MatchState) -> bytes:
-        """High-performance binary encoding for telemetry."""
+    def pack(state: MatchState) -> bytes:
         return msgpack.packb(SimulationEncoder.to_dict(state), use_bin_type=True)
 
     @staticmethod
-    def encode_json(state: MatchState) -> str:
-        """Standard JSON encoding."""
+    def json(state: MatchState) -> str:
         return json.dumps(SimulationEncoder.to_dict(state))
-
-
-class SimulationRecorder:
-    """Professional streamable replay recorder using JSONL."""
-
-    def __init__(self, path: str):
-        self.path = path
-        self.file = None
-
-    def start(self):
-        self.file = open(self.path, "w")
-
-    def record_frame(self, state: MatchState):
-        if self.file and state:
-            data = SimulationEncoder.to_dict(state)
-            self.file.write(json.dumps(data) + "\n")
-
-    def stop(self):
-        if self.file:
-            self.file.close()
-            self.file = None

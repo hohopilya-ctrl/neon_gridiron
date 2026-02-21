@@ -1,57 +1,61 @@
+from __future__ import annotations
 from dataclasses import dataclass, field
-from enum import Enum, auto
 import numpy as np
-from typing import List, Optional, Dict
+from typing import List, Dict, Optional, Literal
+from enum import Enum, auto
 
 
-class EventType(Enum):
-    MATCH_START = auto()
-    MATCH_END = auto()
-    GOAL = auto()
-    FOUL = auto()
-    KICK = auto()
-    DASH = auto()
-    ABILITY_USE = auto()
-    STAMINA_DEPLETED = auto()
+class TeamID(Enum):
+    BLUE = 0
+    RED = 1
 
 
 @dataclass(frozen=True)
-class GameEvent:
-    tick: int
-    event_type: EventType
-    team_id: Optional[int] = None
-    player_id: Optional[str] = None
-    pos: Optional[np.ndarray] = None
-    metadata: Dict = field(default_factory=dict)
+class PlayerConfig:
+    """Static configuration for a player."""
+
+    id: str
+    name: str
+    team: TeamID
+    is_goalie: bool = False
+    base_stamina: float = 100.0
+    base_speed: float = 1.0
+    base_power: float = 1.0
 
 
 @dataclass
 class PlayerState:
+    """Mutable state of a player during a match."""
+
     id: str
-    team: int
+    team: TeamID
     pos: np.ndarray = field(default_factory=lambda: np.zeros(2))
     vel: np.ndarray = field(default_factory=lambda: np.zeros(2))
     stamina: float = 100.0
-    is_goalie: bool = False
-    is_dashing: bool = False
+    heat: float = 0.0
+    energy: float = 100.0
     active_tags: List[str] = field(default_factory=list)
 
 
 @dataclass
 class BallState:
+    """Mutable state of the ball."""
+
     pos: np.ndarray = field(default_factory=lambda: np.zeros(2))
     vel: np.ndarray = field(default_factory=lambda: np.zeros(2))
     spin: float = 0.0
+    last_touch_id: Optional[str] = None
+    last_touch_team: Optional[TeamID] = None
 
 
 @dataclass
 class MatchState:
+    """Full snapshot of the simulation at a specific tick."""
+
     tick: int = 0
-    score: List[int] = field(default_factory=lambda: [0, 0])
+    score: Dict[TeamID, int] = field(default_factory=lambda: {TeamID.BLUE: 0, TeamID.RED: 0})
     players: List[PlayerState] = field(default_factory=list)
     ball: BallState = field(default_factory=BallState)
-    events: List[GameEvent] = field(default_factory=list)
+    events: List[Any] = field(default_factory=list)  # Replaced with MatchEvent in events.py
     spectacle_score: float = 0.0
-
-
-# lines: 25
+    physics_dt: float = 1.0 / 60.0

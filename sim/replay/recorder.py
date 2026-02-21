@@ -1,29 +1,28 @@
 import json
 import os
-from typing import List
 from sim.core.state import MatchState
-
+from sim.serialization import SimulationEncoder
 
 class ReplayRecorder:
     """
-    Standard Replay Recorder for MatchState sequences.
+    Professional streamable recorder for MatchState sequences.
+    Writes in JSONL format for easy parsing and durability.
     """
+    def __init__(self, output_path: str):
+        self.output_path = output_path
+        self.file = None
 
-    def __init__(self, match_id: str, output_dir: str = "replays"):
-        self.match_id = match_id
-        self.output_path = os.path.join(output_dir, f"{match_id}.json")
-        self.frames = []
-        os.makedirs(output_dir, exist_ok=True)
+    def start(self):
+        os.makedirs(os.path.dirname(self.output_path), exist_ok=True)
+        self.file = open(self.output_path, "w")
 
     def record_frame(self, state: MatchState):
-        frame = {
-            "t": state.tick,
-            "b": state.ball.pos.tolist(),
-            "p": [{"id": p.id, "pos": p.pos.tolist(), "stm": p.stamina} for p in state.players],
-            "e": [ev.event_type for ev in state.events],
-        }
-        self.frames.append(frame)
+        if self.file and state:
+            snapshot = SimulationEncoder.to_dict(state)
+            self.file.write(json.dumps(snapshot) + "\n")
+            self.file.flush() # Ensure durability for live debugging
 
-    def save(self, metadata: dict):
-        with open(self.output_path, "w") as f:
-            json.dump({"meta": metadata, "frames": self.frames}, f)
+    def stop(self):
+        if self.file:
+            self.file.close()
+            self.file = None
