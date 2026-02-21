@@ -1,0 +1,14 @@
+# Season 02: Prism Rivalry Overrides
+match:
+  season_name: "Prism Rivalry"
+  counter_matrix_active: true
+
+abilities:
+  - id: ABL_025
+    name: "Glitch Shield"
+    cd: 10.0 # Buffed from 12.0
+    tags: ["SHIELD"]
+  - id: ABL_001
+    name: "Neon Rush"
+    cd: 6.0
+    tags: ["MOBILITY"]

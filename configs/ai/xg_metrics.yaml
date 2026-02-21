@@ -1,0 +1,11 @@
+# xG Metrics Configuration
+xg_weights:
+  distance_to_goal: -0.05
+  angle_to_goal: 1.2
+  defenders_in_way: -0.2
+  shot_velocity: 0.01
+
+spectacle_events:
+  long_shot_min_dist: 25.0
+  aerial_cross_bonus: 5.0
+  clean_sheet_multiplier: 1.5

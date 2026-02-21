@@ -1,0 +1,22 @@
+abilities:
+  - id: ABL_001
+    name: "Neon Rush"
+    category: "Mobility"
+    cost: 30
+    cd: 5.0
+    tradeoff: "Disables turning for duration"
+    counter_tags: ["ICE_FIELD", "GRAVITY"]
+  - id: ABL_025
+    name: "Glitch Shield"
+    category: "Defense"
+    cost: 50
+    cd: 12.0
+    tradeoff: "Energy regen stops for 4s"
+    counter_tags: ["PHASE_BOLT", "STATIC_DISCHARGE"]
+  - id: ABL_055
+    name: "Singularity Save"
+    role_tags: ["GK"]
+    cost: 80
+    cd: 20.0
+    tradeoff: "Extreme stamina drain"
+    counter_tags: ["DISTRACTION"]

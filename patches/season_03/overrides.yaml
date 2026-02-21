@@ -1,0 +1,13 @@
+# Season 03: Hyper League Overrides
+match:
+  season_name: "Hyper League"
+  spectacle_reward_mult: 2.0
+  stamina_regen_bonus: 1.2
+
+physics:
+  air_drag: 0.985 # Faster ball
+
+abilities:
+  - id: ABL_025
+    name: "Glitch Shield"
+    radius_mult: 1.1

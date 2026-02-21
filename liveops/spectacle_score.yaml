@@ -1,0 +1,10 @@
+version: "1.0"
+weights:
+  shots: 0.5
+  abilities: 0.2
+  saves: 1.5
+  possession_penalty: 0.8 # Applied if in back-quadrant too long
+
+anti_manipulation:
+  max_ability_contribution_per_min: 10.0
+  min_shot_velocity: 15.0

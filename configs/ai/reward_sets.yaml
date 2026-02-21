@@ -1,0 +1,17 @@
+balanced:
+  goal_scored: 1.0
+  goal_conceded: -1.2
+  successful_pass: 0.1
+  progression: 0.05
+  penalty_point: -0.2
+
+aggressive:
+  goal_scored: 1.0
+  player_contact: 0.05
+  shot_on_goal: 0.2
+  tackle_success: 0.1
+
+control:
+  possession_time: 0.02
+  pass_count: 0.05
+  triangle_formation: 0.1

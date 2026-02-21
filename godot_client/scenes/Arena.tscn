@@ -1,0 +1,119 @@
+[gd_scene load_steps=3 format=3 uid="uid://d1a2b3c4d5e6f"]
+
+[ext_resource type="Script" path="res://scripts/NetworkSync.gd" id="1_net"]
+[ext_resource type="Shader" path="res://materials/neon_grid.gdshader" id="2_grd"]
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_ball"]
+albedo_color = Color(1, 1, 1, 1)
+
+[sub_resource type="SphereMesh" id="SphereMesh_ball"]
+material = SubResource("StandardMaterial3D_ball")
+radius = 0.22
+height = 0.44
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_p0"]
+albedo_color = Color(0.2, 0.6, 1, 1)
+emission_enabled = true
+emission = Color(0, 0.5, 1, 1)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_p1"]
+albedo_color = Color(1, 0.2, 0.4, 1)
+emission_enabled = true
+emission = Color(1, 0, 0.2, 1)
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_p0"]
+material = SubResource("StandardMaterial3D_p0")
+radius = 0.4
+height = 1.8
+
+[sub_resource type="CapsuleMesh" id="CapsuleMesh_p1"]
+material = SubResource("StandardMaterial3D_p1")
+radius = 0.4
+height = 1.8
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_pitch"]
+albedo_color = Color(0.05, 0.05, 0.08, 1)
+
+[sub_resource type="Environment" id="Environment_main"]
+background_mode = 1
+background_color = Color(0.02, 0.02, 0.04, 1)
+glow_enabled = true
+glow_intensity = 0.8
+glow_strength = 0.8
+glow_bloom = 0.2
+glow_blend_mode = 0
+tonemap_mode = 2
+tonemap_exposure = 1.0
+
+[node name="Arena" type="Node3D"]
+
+[node name="Pitch" type="CSGBox3D" parent="."]
+size = Vector3(60, 1, 40)
+material_override = SubResource("StandardMaterial3D_pitch")
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Environment_main")
+
+[node name="GoalLeft" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -30, 2, 0)
+size = Vector3(2, 4, 10)
+
+[node name="GoalRight" type="CSGBox3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 30, 2, 0)
+size = Vector3(2, 4, 10)
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.5, 0.866025, 0, -0.866025, 0.5, 0, 35, 30)
+current = true
+fov = 60.0
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.707106, -0.5, 0.5, 0, 0.707106, 0.707106, -0.707106, -0.5, 0.5, 30, 20, 20)
+
+[node name="NetworkSync" type="Node3D" parent="."]
+script = ExtResource("1_net")
+
+[node name="Ball" type="MeshInstance3D" parent="."]
+mesh = SubResource("SphereMesh_ball")
+
+[node name="Player_0" type="MeshInstance3D" parent="."]
+mesh = SubResource("CapsuleMesh_p0")
+
+[node name="Player_1" type="MeshInstance3D" parent="."]
+mesh = SubResource("CapsuleMesh_p0")
+
+[node name="Player_2" type="MeshInstance3D" parent="."]
+mesh = SubResource("CapsuleMesh_p0")
+
+[node name="Player_3" type="MeshInstance3D" parent="."]
+mesh = SubResource("CapsuleMesh_p0")
+
+[node name="Player_4" type="MeshInstance3D" parent="."]
+mesh = SubResource("CapsuleMesh_p0")
+
+[node name="Player_5" type="MeshInstance3D" parent="."]
+mesh = SubResource("CapsuleMesh_p0")
+
+[node name="Player_6" type="MeshInstance3D" parent="."]
+mesh = SubResource("CapsuleMesh_p0")
+
+[node name="Player_7" type="MeshInstance3D" parent="."]
+mesh = SubResource("CapsuleMesh_p1")
+
+[node name="Player_8" type="MeshInstance3D" parent="."]
+mesh = SubResource("CapsuleMesh_p1")
+
+[node name="Player_9" type="MeshInstance3D" parent="."]
+mesh = SubResource("CapsuleMesh_p1")
+
+[node name="Player_10" type="MeshInstance3D" parent="."]
+mesh = SubResource("CapsuleMesh_p1")
+
+[node name="Player_11" type="MeshInstance3D" parent="."]
+mesh = SubResource("CapsuleMesh_p1")
+
+[node name="Player_12" type="MeshInstance3D" parent="."]
+mesh = SubResource("CapsuleMesh_p1")
+
+[node name="Player_13" type="MeshInstance3D" parent="."]
+mesh = SubResource("CapsuleMesh_p1")

@@ -1,0 +1,27 @@
+attributes:
+  - id: ATR_01
+    name: "Agility"
+    min: 0.0
+    max: 100.0
+    soft_cap: 80.0
+    hard_cap: 100.0
+  - id: ATR_02
+    name: "Impact"
+    min: 0.0
+    max: 100.0
+  - id: ATR_03
+    name: "Precision"
+    min: 0.0
+    max: 100.0
+  - id: ATR_04
+    name: "Circuitry"
+    min: 0.0
+    max: 100.0
+  - id: ATR_05
+    name: "Cooling"
+    min: 0.0
+    max: 100.0
+  - id: ATR_06
+    name: "Reactive"
+    min: 0.0
+    max: 100.0

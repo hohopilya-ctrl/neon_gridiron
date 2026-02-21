@@ -1,0 +1,12 @@
+rewards:
+  goal: 100.0
+  pass_success: 1.0
+  interception: 2.0
+  save: 50.0
+  fouled_penalty: -10.0
+  spectacle_bonus_mult: 1.5
+
+pbt:
+  mutation_rate: 0.1
+  exploit_percentile: 0.2
+  population_size: 16

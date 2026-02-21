@@ -1,0 +1,7 @@
+# Season 01 Overrides
+match:
+  stamina_regen_bonus: 1.1 # 10% buff
+
+abilities:
+  - id: ABL_001
+    cd: 6.0 # Increased from 5.0s

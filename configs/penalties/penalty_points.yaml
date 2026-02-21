@@ -1,0 +1,30 @@
+decay:
+  rate_per_sec: 0.1
+  passive_decay_after_sec: 30.0
+
+rules:
+  - id: REF_TRIP
+    name: "Tripping"
+    points: 3
+    sanction: "YELLOW_PROB_20"
+  - id: REF_OFFSIDE
+    name: "Offside"
+    points: 1
+    sanction: "POSSESSION_LOSS"
+  - id: REF_GK_BLOCK
+    name: "Goalkeeper Obstruction"
+    points: 5
+    sanction: "MINOR_DEBUFF_STAMINA"
+  - id: REF_UNSPORTSMANLIKE
+    name: "Time Wasting"
+    threshold_sec: 10
+    points_per_sec: 1.0
+
+sanctions:
+  threshold_soft: 5
+  threshold_med: 10
+  threshold_hard: 15
+  effects:
+    soft: { stamina_regen_mult: 0.8 }
+    med: { abilities_locked: true, duration: 10.0 }
+    hard: { red_card: true }

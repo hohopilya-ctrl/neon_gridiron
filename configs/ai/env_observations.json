@@ -1,0 +1,50 @@
+{
+    "features": {
+        "self": [
+            "pos_x",
+            "pos_y",
+            "vel_x",
+            "vel_y",
+            "rot",
+            "stamina",
+            "energy",
+            "heat",
+            "is_goalie"
+        ],
+        "ball": [
+            "pos_x",
+            "pos_y",
+            "vel_x",
+            "vel_y",
+            "is_owned",
+            "owner_id",
+            "last_touch_team"
+        ],
+        "teammates": [
+            "pos_x",
+            "pos_y",
+            "vel_x",
+            "vel_y",
+            "role_id",
+            "active_ability_id"
+        ],
+        "opponents": [
+            "pos_x",
+            "pos_y",
+            "vel_x",
+            "vel_y",
+            "penalty_points"
+        ],
+        "game_context": [
+            "timer_norm",
+            "score_diff",
+            "possession_side",
+            "ref_advantage_active"
+        ]
+    },
+    "sampling": {
+        "update_freq": 60,
+        "noise_std": 0.01,
+        "latency_ticks": 2
+    }
+}

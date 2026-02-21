@@ -1,0 +1,61 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+ml_environment/venv/
+ml_environment/env/
+
+# --- Artifacts & OS ---
+.DS_Store
+Thumbs.db
+
+# --- Project Specific ---
+logs/
+replays/
+artifacts/
+models/
+ppo_neon_tensorboard/
+ml_environment/replays/
+ml_environment/models/
+ml_environment/ppo_neon_tensorboard/
+ml_environment/*.txt
+*.log
+
+# --- Godot ---
+.godot/
+*.tmp
+godot_client/.godot/
+
+# --- IDEs ---
+.vscode/
+.idea/
+*.swp
+*.swo

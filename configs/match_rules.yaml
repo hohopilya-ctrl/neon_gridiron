@@ -1,0 +1,16 @@
+match:
+  max_players_per_team: 7
+  duration_ticks: 10000
+  pitch_size: [60, 40]
+  goal_size: 8.0
+
+physics:
+  damping: 0.95
+  player_mass: 70.0
+  ball_mass: 0.5
+  magnus_coefficient: 0.2
+
+penalties:
+  foul_threshold: 15.0
+  yellow_card_limit: 50.0
+  red_card_limit: 100.0

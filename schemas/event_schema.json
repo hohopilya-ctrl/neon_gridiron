@@ -1,0 +1,19 @@
+{
+    "required": [
+        "event_id",
+        "timestamp_tick",
+        "event_type"
+    ],
+    "types": [
+        "GOAL",
+        "PASS",
+        "TACKLE",
+        "FOUL",
+        "CARD_YELLOW",
+        "CARD_RED",
+        "ABILITY_USE",
+        "OUT_OF_BOUNDS",
+        "CORNER_KICK",
+        "PENALTY_KICK"
+    ]
+}

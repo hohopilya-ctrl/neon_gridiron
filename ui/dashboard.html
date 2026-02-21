@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Neon ULTRA | Live Dashboard</title>
+    <style>
+        body { 
+            background: #0a0a0c; color: #00f2ff; font-family: 'Courier New', monospace; 
+            margin: 0; padding: 20px;
+        }
+        .header { border-bottom: 2px solid #00f2ff; padding-bottom: 10px; margin-bottom: 20px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
+        .stat-card { background: #1a1a20; padding: 20px; border-radius: 8px; border: 1px solid #0044ff; box-shadow: 0 0 15px rgba(0, 70, 255, 0.2); }
+        .stat-value { font-size: 2em; color: #fff; text-shadow: 0 0 10px #00f2ff; }
+        #log { margin-top: 20px; max-height: 200px; overflow-y: auto; color: #666; font-size: 0.8em; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>N E O N  G R I D I R O N  U L T R A</h1>
+        <p>RE-ENGINEERED PRODUCTION ARCHITECTURE</p>
+    </div>
+    
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div>CURRENT TICK</div>
+            <div id="tick" class="stat-value">0</div>
+        </div>
+        <div class="stat-card">
+            <div>SCORE</div>
+            <div id="score" class="stat-value">0 - 0</div>
+        </div>
+        <div class="stat-card">
+            <div>EVENTS</div>
+            <div id="event-count" class="stat-value">0</div>
+        </div>
+    </div>
+
+    <div id="log">Connecting to WebSocket...</div>
+
+    <script>
+        const log = document.getElementById('log');
+        const tickEl = document.getElementById('tick');
+        const scoreEl = document.getElementById('score');
+        const ws = new WebSocket('ws://localhost:8000/ws/live');
+
+        ws.onopen = () => log.innerText = "CONNECTED TO ULTRA CORE";
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            tickEl.innerText = data.t;
+            scoreEl.innerText = `${data.s[0]} - ${data.s[1]}`;
+            if (data.e.length > 0) {
+                const entry = document.createElement('div');
+                entry.innerText = `[${data.t}] EVENT: ${data.e[0].t}`;
+                log.prepend(entry);
+            }
+        };
+    </script>
+</body>
+</html>

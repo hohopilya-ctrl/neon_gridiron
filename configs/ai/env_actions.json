@@ -1,0 +1,33 @@
+{
+    "continuous": {
+        "move": {
+            "shape": [
+                2
+            ],
+            "min": -1.0,
+            "max": 1.0
+        },
+        "kick": {
+            "shape": [
+                1
+            ],
+            "min": 0.0,
+            "max": 1.0
+        },
+        "kick_angle": {
+            "shape": [
+                1
+            ],
+            "min": -3.14,
+            "max": 3.14
+        }
+    },
+    "discrete": {
+        "ability_select": {
+            "n": 8
+        },
+        "ability_trigger": {
+            "n": 2
+        }
+    }
+}

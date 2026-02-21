@@ -1,0 +1,16 @@
+resource:
+  max_energy: 100.0
+  recharge_rate: 5.0
+  stamina_linked_recharge: true # Faster recharge when standing still
+
+heat:
+  threshold_limit: 100.0
+  decay_rate: 15.0
+  overheat_silence_sec: 5.0
+  ability_heat_gen: 20.0 # Default per use
+
+vfx:
+  classes:
+    S: { bloom: 2.0, trail_length: 1.0 }
+    A: { bloom: 1.2, trail_length: 0.5 }
+    B: { bloom: 0.5, trail_length: 0.2 }
