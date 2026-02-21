@@ -2,16 +2,18 @@ import pymunk
 import numpy as np
 from typing import Optional
 
+
 class Engine2D:
     """
     Core physics engine using Pymunk.
     Handles player movement, ball physics, and Magnus effect.
     """
+
     def __init__(self, config: dict, rng: Optional[np.random.Generator] = None):
         self.rng = rng or np.random.default_rng()
         self.space = pymunk.Space()
         self.space.gravity = (0, 0)
-        self.damping = config.get('damping', 0.95)
+        self.damping = config.get("damping", 0.95)
         self.space.damping = self.damping
         self._init_field()
 
@@ -22,7 +24,7 @@ class Engine2D:
             pymunk.Segment(static_body, (0, 0), (600, 0), 2),
             pymunk.Segment(static_body, (600, 0), (600, 400), 2),
             pymunk.Segment(static_body, (600, 400), (0, 400), 2),
-            pymunk.Segment(static_body, (0, 400), (0, 0), 2)
+            pymunk.Segment(static_body, (0, 400), (0, 0), 2),
         ]
         for line in lines:
             line.elasticity = 0.8
@@ -47,7 +49,7 @@ class Engine2D:
         self.space.add(body, shape)
         return body
 
-    def step(self, dt: float = 1.0/60.0):
+    def step(self, dt: float = 1.0 / 60.0):
         self.space.step(dt)
 
     def apply_magnus(self, ball_body, spin: float):
@@ -56,4 +58,6 @@ class Engine2D:
         if vel.length > 0.1:
             force = pymunk.Vec2d(-vel.y, vel.x).normalized() * spin * 5.0
             ball_body.apply_force_at_local_point(force)
+
+
 # lines: 50

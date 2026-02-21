@@ -3,6 +3,7 @@ from enum import Enum, auto
 import numpy as np
 from typing import List, Optional, Dict
 
+
 class EventType(Enum):
     MATCH_START = auto()
     MATCH_END = auto()
@@ -13,6 +14,7 @@ class EventType(Enum):
     ABILITY_USE = auto()
     STAMINA_DEPLETED = auto()
 
+
 @dataclass(frozen=True)
 class GameEvent:
     tick: int
@@ -21,6 +23,7 @@ class GameEvent:
     player_id: Optional[str] = None
     pos: Optional[np.ndarray] = None
     metadata: Dict = field(default_factory=dict)
+
 
 @dataclass
 class PlayerState:
@@ -33,11 +36,13 @@ class PlayerState:
     is_dashing: bool = False
     active_tags: List[str] = field(default_factory=list)
 
+
 @dataclass
 class BallState:
     pos: np.ndarray = field(default_factory=lambda: np.zeros(2))
     vel: np.ndarray = field(default_factory=lambda: np.zeros(2))
     spin: float = 0.0
+
 
 @dataclass
 class MatchState:
@@ -47,4 +52,6 @@ class MatchState:
     ball: BallState = field(default_factory=BallState)
     events: List[GameEvent] = field(default_factory=list)
     spectacle_score: float = 0.0
+
+
 # lines: 25

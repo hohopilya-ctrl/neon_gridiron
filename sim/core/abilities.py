@@ -1,30 +1,41 @@
-import time
+from dataclasses import dataclass
+from typing import Dict
 
+
+@dataclass
 class Ability:
-    def __init__(self, name: str, cost: float, cooldown: float):
-        self.name = name
-        self.cost = cost
-        self.cooldown = cooldown
-        self.last_used = 0
+    id: str
+    name: str
+    energy_cost: float
+    cooldown_ticks: int
+    heat_per_use: float  # Anti-spam
 
-    def can_use(self, stamina: float) -> bool:
-        return stamina >= self.cost and (time.time() - self.last_used) > self.cooldown
 
 class AbilityManager:
-    def __init__(self):
-        self.abilities = {
-            "DASH": Ability("DASH", 20.0, 1.5),
-            "POWER_SHOT": Ability("POWER_SHOT", 35.0, 5.0),
-            "TELEPORT": Ability("TELEPORT", 80.0, 15.0)
-        }
-        self.heat = 0.0 # Anti-spam global heat
+    """
+    Advanced Ability Manager with energy and heat mechanics.
+    """
 
-    def cast(self, agent, ability_name):
-        a = self.abilities.get(ability_name)
-        if a and a.can_use(agent["stamina"]):
-            a.last_used = time.time()
-            agent["stamina"] -= a.cost
-            self.heat += 5.0
-            return True
-        return False
-# lines: 30
+    def __init__(self, registry: Dict[str, Ability]):
+        self.registry = registry
+        self.active_heat = {}  # actor_id -> heat_float
+
+    def can_cast(self, actor_id: str, ability_id: str, current_energy: float) -> bool:
+        ability = self.registry.get(ability_id)
+        if not ability:
+            return False
+        if current_energy < ability.energy_cost:
+            return False
+        if self.active_heat.get(actor_id, 0) > 80.0:
+            return False  # Overheated
+        return True
+
+    def cast(self, actor_id: str, ability_id: str):
+        ability = self.registry[ability_id]
+        self.active_heat[actor_id] = self.active_heat.get(actor_id, 0) + ability.heat_per_use
+        return ability
+
+    def update(self):
+        """Decay heat over time."""
+        for aid in list(self.active_heat.keys()):
+            self.active_heat[aid] = max(0, self.active_heat[aid] * 0.99)

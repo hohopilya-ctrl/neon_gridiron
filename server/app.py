@@ -9,6 +9,7 @@ logger = logging.getLogger("NeonServer")
 
 app = FastAPI(title="Neon Evolution League API", version="2.0.0")
 
+
 class ConnectionManager:
     def __init__(self):
         self.active_connections: List[WebSocket] = []
@@ -31,20 +32,20 @@ class ConnectionManager:
                 # Automatic cleanup of stale connections
                 self.disconnect(connection)
 
+
 manager = ConnectionManager()
+
 
 @app.get("/health")
 def health():
     return {"status": "operational", "version": "2.0.0", "engine": "ultra"}
 
+
 @app.get("/api/v1/league/stats")
 async def get_league_stats():
     # In a real app, this would query a database/pool manager
-    return {
-        "active_models": 1,
-        "generations_completed": 5,
-        "system_status": "training"
-    }
+    return {"active_models": 1, "generations_completed": 5, "system_status": "training"}
+
 
 @app.websocket("/ws/live")
 async def live_stream(websocket: WebSocket):
@@ -60,7 +61,10 @@ async def live_stream(websocket: WebSocket):
         logger.error(f"WebSocket Error: {e}")
         manager.disconnect(websocket)
 
+
 async def broadcast_state(state: dict):
     payload = json.dumps(state)
     await manager.broadcast(payload)
+
+
 # lines: 40

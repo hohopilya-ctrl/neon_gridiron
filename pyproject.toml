@@ -8,7 +8,7 @@ version = "0.2.0"
 description = "Professional 7v7 Futuristic Football simulation with MARL"
 readme = "README.md"
 requires-python = ">=3.12"
-license = {text = "MIT"}
+license = "MIT"
 authors = [
     {name = "Antigravity", email = "ai@google.com"}
 ]
@@ -25,7 +25,11 @@ dependencies = [
     "pydantic>=2.6.0",
     "pyyaml>=6.0.1",
     "msgpack>=1.0.7",
+    "typer>=0.9.0",
 ]
+
+[project.scripts]
+neon-gridiron = "ai.cli:app"
 
 [project.optional-dependencies]
 dev = [
@@ -52,3 +56,6 @@ ignore_missing_imports = true
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 python_files = "test_*.py"
+
+[tool.setuptools]
+packages = ["ai", "sim", "server", "telemetry", "configs"]

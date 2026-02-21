@@ -1,6 +1,8 @@
-# Neon Gridiron ULTRA 🏗️⚽
+# Neon Gridiron ULTRA 🏈🤖
 
-Professional 7v7 Futuristic Football simulation with MARL (Multi-Agent Reinforcement Learning) and Hierarchical Self-Play.
+**GitHub Repository:** [hohopilya-ctrl/neon_gridiron](https://github.com/hohopilya-ctrl/neon_gridiron)
+
+A production-grade 7v7 futuristic football simulation designed for Multi-Agent Reinforcement Learning (MARL) research. ical Self-Play.
 
 ## Project Structure
 - `sim/`: Core physics engine (Pymunk) and match logic.
@@ -11,24 +13,27 @@ Professional 7v7 Futuristic Football simulation with MARL (Multi-Agent Reinforce
 - `ui/`: Web Dashboard and Match Viewer.
 - `scripts/`: Development and automation tools.
 
-## Quick Start (Development)
-1. **Initialize Environment**:
-   ```bash
-   # Recommended: Python 3.12+
-   python -m venv venv
-   source venv/bin/activate  # or venv\Scripts\activate
-   pip install -r requirements.txt
-   ```
+## Quickstart 🚀
 
-2. **Run ULTRA Stack**:
-   ```bash
-   python run_ultra.py
-   ```
+### 1. Installation
+Clone the repo and install in editable mode:
+```bash
+git clone https://github.com/hohopilya-ctrl/neon_gridiron.git
+cd neon_gridiron
+pip install -e .
+```
 
-3. **Cleanup Artifacts**:
-   ```bash
-   python scripts/cleanup.py
-   ```
+### 2. Run the Stack
+Launch everything (API + Logic + Training):
+```bash
+neon-gridiron ultra
+```
+
+### 3. Individual Components
+- **Train Only**: `neon-gridiron train`
+- **Standalone Server**: `neon-gridiron server`
+- **Sim Smoke Test**: `neon-gridiron sim`
+- **Run Checks**: `neon-gridiron check`
 
 ## Architecture
 The project follows a decoupling principle between **Computation** (Simulation/AI) and **Visualization** (Godot/Web).

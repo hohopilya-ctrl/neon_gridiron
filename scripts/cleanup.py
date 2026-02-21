@@ -2,6 +2,7 @@ import os
 import shutil
 import pathlib
 
+
 def cleanup():
     """Purge transient artifacts, caches and temporary files."""
     root = pathlib.Path(__file__).parent.parent.resolve()
@@ -21,7 +22,7 @@ def cleanup():
         "ml_environment/models",
         "ml_environment/ppo_neon_tensorboard",
         "godot_client/.godot",
-        ".godot"
+        ".godot",
     ]
 
     # Files to remove
@@ -30,8 +31,8 @@ def cleanup():
         "**/*.pyo",
         "ml_environment/*.txt",
         "*.log",
-        "diag_ultra.py", # Local diagnostic tool
-        "run_ultra.bat"  # Replaced by better scripts later
+        "diag_ultra.py",  # Local diagnostic tool
+        "run_ultra.bat",  # Replaced by better scripts later
     ]
 
     for pattern in trash_dirs:
@@ -53,6 +54,7 @@ def cleanup():
                     print(f"Failed to remove {path}: {e}")
 
     print("✅ Cleanup complete.")
+
 
 if __name__ == "__main__":
     cleanup()
