@@ -1,7 +1,9 @@
 import numpy as np
 
+from ai.env.neon_env import NeonFootballEnv
 from sim.core.physics import PhysicsEngine
 from sim.core.rng import DeterministicRNG
+from sim.core.state import TeamID
 
 
 def test_physics_engine_init():
@@ -9,10 +11,6 @@ def test_physics_engine_init():
     rng = DeterministicRNG(seed=42)
     engine = PhysicsEngine(pitch_dim=(600.0, 400.0), rng=rng)
     assert engine is not None
-
-
-from ai.env.neon_env import NeonFootballEnv
-from sim.core.state import TeamID
 
 
 def test_env_step():

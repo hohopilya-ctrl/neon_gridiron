@@ -24,4 +24,4 @@ class ExplainabilityFeed:
         self.logs.append({"t": tick, "a": agent_id, "c": code, "w": weight})
 
     def get_summary(self, start_tick: int, end_tick: int):
-        return [l for l in self.logs if start_tick <= l["t"] <= end_tick]
+        return [entry for entry in self.logs if start_tick <= entry["t"] <= end_tick]
