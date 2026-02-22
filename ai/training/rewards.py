@@ -29,7 +29,9 @@ class RewardShaper:
         # 2. Dense Ball Proximity (distance from closest player to the ball)
         if getattr(state, "players", None):
             ball_pos = np.asarray(state.ball.pos, dtype=np.float32)
-            min_dist = min(float(np.linalg.norm(np.asarray(p.pos) - ball_pos)) for p in state.players)
+            min_dist = min(
+                float(np.linalg.norm(np.asarray(p.pos) - ball_pos)) for p in state.players
+            )
             rewards["dense"] += self.w_ball_dist * (1.0 / (1.0 + min_dist / 100.0))
 
         # 3. Possession Reward

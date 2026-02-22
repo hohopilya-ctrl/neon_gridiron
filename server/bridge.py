@@ -8,6 +8,7 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 app = FastAPI()
 
+
 class TelemetryBridge:
     def __init__(self, udp_port: int = 5555):
         self.udp_port = udp_port
@@ -18,14 +19,14 @@ class TelemetryBridge:
         """Forward msgpack data to all connected WebSocket clients."""
         if not self.clients:
             return
-            
+
         # Unpack to verify/log or just forward raw
         # For ULTRA efficiency, we could forward raw, but UI expects JSON for now
         # Let's convert to JSON-compatible for the current browser UI
         try:
             unpacked = msgpack.unpackb(data, raw=False)
-            message = unpacked # Already a dict
-            
+            message = unpacked  # Already a dict
+
             # Use gather to broadcast in parallel
             tasks = [client.send_json(message) for client in self.clients]
             if tasks:
@@ -38,9 +39,9 @@ class TelemetryBridge:
         sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         sock.bind(("0.0.0.0", self.udp_port))
         sock.setblocking(False)
-        
+
         print(f"ULTRA Bridge listening on UDP:{self.udp_port}")
-        
+
         loop = asyncio.get_event_loop()
         while self.running:
             try:
@@ -49,7 +50,9 @@ class TelemetryBridge:
             except Exception:
                 await asyncio.sleep(0.001)
 
+
 bridge = TelemetryBridge()
+
 
 @app.websocket("/ws/live")
 async def websocket_endpoint(websocket: WebSocket):
@@ -58,14 +61,16 @@ async def websocket_endpoint(websocket: WebSocket):
     print(f"UI Client Connected. Total: {len(bridge.clients)}")
     try:
         while True:
-            await websocket.receive_text() # Keep-alive
+            await websocket.receive_text()  # Keep-alive
     except WebSocketDisconnect:
         bridge.clients.remove(websocket)
         print(f"UI Client Disconnected. Total: {len(bridge.clients)}")
 
+
 @app.on_event("startup")
 async def startup_event():
     asyncio.create_task(bridge.udp_listener())
+
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

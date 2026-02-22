@@ -36,7 +36,9 @@ class DreamerTrainer:
 
         # Loop through sequence
         for t in range(obs.shape[1] - 1):
-            state, recon_obs, pred_reward, stats = self.world_model(obs[:, t], actions[:, t], prev_state)
+            state, recon_obs, pred_reward, stats = self.world_model(
+                obs[:, t], actions[:, t], prev_state
+            )
 
             # Reconstruction loss
             recon_loss = F.mse_loss(recon_obs, obs[:, t])
@@ -59,7 +61,9 @@ class DreamerTrainer:
         self.policy_optimizer.zero_grad()
 
         # Start from a real observation and encode to latent
-        state, _, _, _ = self.world_model(start_obs, torch.zeros(start_obs.shape[0], 2).to(self.device))
+        state, _, _, _ = self.world_model(
+            start_obs, torch.zeros(start_obs.shape[0], 2).to(self.device)
+        )
 
         imagined_rewards = []
 

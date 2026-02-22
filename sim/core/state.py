@@ -12,6 +12,7 @@ class TeamID(Enum):
     RED = 1
     SPECTATOR = 2
 
+
 @dataclass(frozen=True)
 class FieldConfig:
     width: float = 600.0
@@ -19,6 +20,7 @@ class FieldConfig:
     goal_width: float = 80.0
     boundary_width: float = 5.0
     physics_dt: float = 1.0 / 60.0
+
 
 @dataclass(frozen=True)
 class AbilityConfig:
@@ -28,6 +30,7 @@ class AbilityConfig:
     kick_power_mult: float = 1.0
     shield_duration: int = 30
 
+
 @dataclass(frozen=True)
 class MatchConfig:
     match_id: str
@@ -35,6 +38,7 @@ class MatchConfig:
     team_size: int = 7
     field_cfg: FieldConfig = field(default_factory=FieldConfig)
     ability_cfg: AbilityConfig = field(default_factory=AbilityConfig)
+
 
 @dataclass(frozen=True)
 class PlayerConfig:
@@ -45,6 +49,7 @@ class PlayerConfig:
     base_stamina: float = 100.0
     base_speed: float = 1.0
     base_power: float = 1.0
+
 
 @dataclass
 class PlayerState:
@@ -58,6 +63,7 @@ class PlayerState:
     active_tags: List[str] = field(default_factory=list)
     dash_cooldown: int = 0
 
+
 @dataclass
 class BallState:
     pos: np.ndarray = field(default_factory=lambda: np.zeros(2))
@@ -65,6 +71,7 @@ class BallState:
     spin: float = 0.0
     last_touch_id: Optional[str] = None
     last_touch_team: Optional[TeamID] = None
+
 
 @dataclass
 class MatchEvent:
@@ -75,15 +82,18 @@ class MatchEvent:
     target_id: Optional[str] = None
     params: Dict[str, Any] = field(default_factory=dict)
 
+
 @dataclass
 class GoalEvent(MatchEvent):
     team_scored: TeamID = TeamID.BLUE
     event_type: str = "GOAL"
 
+
 @dataclass
 class PossessionEvent(MatchEvent):
     team: TeamID = TeamID.BLUE
     event_type: str = "POSSESSION"
+
 
 @dataclass
 class MatchState:

@@ -12,14 +12,17 @@ class TelemetryFrame:
     High-performance state snapshot for UI and network sync.
     Optimized for msgpack serialization.
     """
+
     v: int = 2  # Protocol version
     t: int = 0  # Tick
     s: Tuple[int, int] = (0, 0)  # Score (Blue, Red)
     b: Tuple[float, float] = (0.0, 0.0)  # Ball Pos X, Y
     bv: Tuple[float, float] = (0.0, 0.0)  # Ball Vel X, Y
-    p: List[Dict[str, Any]] = field(default_factory=list)  # Players: [{id, team, pos:[x,y], vel:[v,v], st, tags[]}]
+    p: List[Dict[str, Any]] = field(
+        default_factory=list
+    )  # Players: [{id, team, pos:[x,y], vel:[v,v], st, tags[]}]
     e: List[Dict[str, Any]] = field(default_factory=list)  # Events
-    o: Dict[str, Any] = field(default_factory=dict) # Overlays (Explainability)
+    o: Dict[str, Any] = field(default_factory=dict)  # Overlays (Explainability)
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -30,7 +33,7 @@ class TelemetryFrame:
             "bv": list(self.bv),
             "p": self.p,
             "e": self.e,
-            "o": self.o
+            "o": self.o,
         }
 
     def pack(self) -> bytes:
@@ -47,5 +50,5 @@ class TelemetryFrame:
             bv=tuple(d["bv"]),
             p=d["p"],
             e=d["e"],
-            o=d.get("o", {})
+            o=d.get("o", {}),
         )
