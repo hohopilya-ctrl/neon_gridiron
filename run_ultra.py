@@ -18,17 +18,11 @@ def launch():
 
     try:
         # 1. Start Telemetry Bridge (FastAPI)
-        print("[1/3] Starting API Server...")
+        print("[1/3] Starting Telemetry Bridge...")
         p_api = subprocess.Popen(
             [
                 sys.executable,
-                "-m",
-                "uvicorn",
-                "server.app:app",
-                "--host",
-                "127.0.0.1",
-                "--port",
-                "8000",
+                "server/bridge.py",
             ],
             cwd=root,
             **kwargs,
@@ -36,17 +30,18 @@ def launch():
         processes.append(p_api)
 
         # Allow server to warm up
-        time.sleep(2)
+        time.sleep(3)
 
-        # 2. Start Training Engine
-        print("[2/3] Starting RL Training Engine...")
-        p_train = subprocess.Popen([sys.executable, "-m", "ai.training.league"], cwd=root, **kwargs)
-        processes.append(p_train)
+        # 2. Start Live Simulation Runner
+        print("[2/3] Starting ULTRA Live Runner...")
+        p_sim = subprocess.Popen([sys.executable, "scripts/live_runner.py"], cwd=root, **kwargs)
+        processes.append(p_sim)
 
-        # 3. Start Live Viewer (Pygame)
-        print("[3/3] Starting Live Viewer...")
-        p_view = subprocess.Popen([sys.executable, "tools/live_viewer.py"], cwd=root, **kwargs)
-        processes.append(p_view)
+        # 3. Instruction for UI
+        print("[3/3] ULTRA Stack is live!")
+        print("    -> Telemetry Bridge: http://127.0.0.1:8000")
+        print("    -> Live Dashboard: http://localhost:3000")
+        print("\nPress Ctrl+C to stop the stack.")
 
         print("\n✅ ULTRA STACK DEPLOYED.")
         print("Monitor logs in separate sessions.")

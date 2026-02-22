@@ -59,3 +59,12 @@ godot_client/.godot/
 .idea/
 *.swp
 *.swo
+# --- Node / UI ---
+ui/node_modules/
+ui/.next/
+ui/out/
+ui/build/
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local

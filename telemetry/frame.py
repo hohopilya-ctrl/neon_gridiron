@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Tuple, Any
 import numpy as np
 import msgpack
 
-@dataclass
+@dataclass(frozen=True)
 class TelemetryFrame:
     """
     High-performance state snapshot for UI and network sync.

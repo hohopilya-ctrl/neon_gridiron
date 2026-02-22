@@ -176,21 +176,57 @@ func _ready():
 	crowd.set_script(load("res://scripts/CrowdSystem.gd"))
 	add_child(crowd)
 	
-	# Create Stadium Billboards (Phase 18)
+	# Initialize Phase 23 Visuals
+	var pp = load("res://scripts/PostProcessing.gd").new()
+	pp.setup_environment(world_env)
+	
+	var dui = Node3D.new()
+	dui.name = "DiegeticUI"
+	dui.set_script(load("res://scripts/DiegeticUI.gd"))
+	add_child(dui)
+	
+	var director = Camera3D.new()
+	director.name = "CinematicDirector"
+	director.set_script(load("res://scripts/CinematicDirector.gd"))
+	add_child(director)
+	director.make_current()
+	
+	var tv = Node3D.new()
+	tv.name = "ThoughtVisualizer"
+	tv.set_script(load("res://scripts/ThoughtVisualizer.gd"))
+	add_child(tv)
+
 	_create_billboard("BoardLeft", Vector3(-35, 5, 0), Vector3(0, 90, 0))
 	_create_billboard("BoardRight", Vector3(35, 5, 0), Vector3(0, -90, 0))
+
+func _update_billboards(state: Dictionary):
+	var lb_text = "N E O N   U L T R A\n"
+	if state.has("s"):
+		lb_text += "%d  VS  %d\n" % [int(state["s"][0]), int(state["s"][1])]
+	
+	if state.has("t"):
+		lb_text += "TICK: %d" % int(state["t"])
+		
+	var b1 = get_node_or_null("BoardLeft")
+	if b1: b1.mesh.text = lb_text
+	var b2 = get_node_or_null("BoardRight")
+	if b2: b2.mesh.text = lb_text
 
 func _create_billboard(bname: String, pos: Vector3, rot: Vector3):
 	var mesh_inst = MeshInstance3D.new()
 	mesh_inst.name = bname
 	var text_mesh = TextMesh.new()
-	text_mesh.text = "PRO LEAGUE"
-	text_mesh.pixel_size = 0.05
+	text_mesh.text = "ULTRA"
+	text_mesh.pixel_size = 0.08
+	text_mesh.depth = 0.1
 	mesh_inst.mesh = text_mesh
 	
 	var mat = StandardMaterial3D.new()
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.albedo_color = Color(0, 1, 1, 0.5)
 	mat.emission_enabled = true
-	mat.emission = Color(0, 1, 1)
+	mat.emission = Color(0, 0.8, 1.0)
+	mat.emission_energy_multiplier = 2.0
 	mat.shading_mode = StandardMaterial3D.SHADING_MODE_UNSHADED
 	mesh_inst.set_surface_override_material(0, mat)
 	
@@ -198,73 +234,91 @@ func _create_billboard(bname: String, pos: Vector3, rot: Vector3):
 	mesh_inst.global_position = pos
 	mesh_inst.global_rotation_degrees = rot
 
+var state_buffer: Array = []
+var buffer_max_size: int = 5
+var lerp_time: float = 0.0
+var tick_rate: float = 1.0 / 60.0
+
 func _process(delta):
 	var label = get_node_or_null("DebugLabel")
+	
+	# 1. Receiver: Collect packets into buffer
 	while udp.get_available_packet_count() > 0:
 		packet_count += 1
 		var pkt = udp.get_packet()
-		var json_str = pkt.get_string_from_utf8()
-		var state = JSON.parse_string(json_str)
+		var state = MsgPack.unpack(pkt)
 		if state != null and typeof(state) == TYPE_DICTIONARY:
-			if label: label.text = "Packets Recv: %d | Status: OK" % packet_count
-			_update_visuals(state)
-		else:
-			if label: label.text = "Packets: %d | Parse Error: %s" % [packet_count, json_str.substr(0, 30)]
+			state_buffer.append(state)
+			if state_buffer.size() > buffer_max_size:
+				state_buffer.remove_at(0)
+			if label: label.text = "Packets Recv: %d | Buffer: %d" % [packet_count, state_buffer.size()]
 
-func _update_visuals(state: Dictionary):
-	# Support v2.0.0 schema
-	if not state.has("v") or state["v"] != "2.0.0":
-		return
+	# 2. Replay: Smoothly interpolate between states
+	if state_buffer.size() >= 2:
+		lerp_time += delta
+		var t = lerp_time / tick_rate
 		
-	# 1. Ball Update
-	if ball and state.has("b"):
-		var b_data = state["b"]
-		var target_pos = Vector3(
-			float(b_data["p"][0]) / 10.0 - 30.0,
-			0.5,
-			float(b_data["p"][1]) / 10.0 - 20.0
-		)
-		# Smooth interpolation
-		ball.global_position = ball.global_position.lerp(target_pos, 0.4)
+		if t >= 1.0:
+			state_buffer.remove_at(0)
+			lerp_time = 0.0
+			t = 0.0
+			
+		if state_buffer.size() >= 2:
+			_interpolate_visuals(state_buffer[0], state_buffer[1], t)
+
+func _interpolate_visuals(s1: Dictionary, s2: Dictionary, t: float):
+	# Interpolate Ball
+	if ball and s1.has("b") and s2.has("b"):
+		var p1 = _raw_to_vec3(s1["b"]["p"])
+		var p2 = _raw_to_vec3(s2["b"]["p"])
+		ball.global_position = p1.lerp(p2, t)
 		
-		var trail = ball.get_node_or_null("MotionTrail")
-		if trail:
-			var spin = float(b_data.get("s", 0.0))
-			trail.emitting = true
-			
-	# 2. Players Update
-	if state.has("p"):
-		var p_list = state["p"]
-		for i in range(min(p_list.size(), players.size())):
-			var p_node = players[i]
-			var p_data = p_list[i]
-			
-			var target_pos = Vector3(
-				float(p_data["p"][0]) / 10.0 - 30.0,
-				0.0,
-				float(p_data["p"][1]) / 10.0 - 20.0
-			)
-			p_node.global_position = p_node.global_position.lerp(target_pos, 0.5)
+	# Interpolate Players
+	if s1.has("p") and s2.has("p"):
+		var p1_list = s1["p"]
+		var p2_list = s2["p"]
+		for i in range(min(p1_list.size(), p2_list.size(), players.size())):
+			var v1 = _raw_to_vec3(p1_list[i]["p"])
+			var v2 = _raw_to_vec3(p2_list[i]["p"])
+			players[i].global_position = v1.lerp(v2, t)
 			
 			# Stamina Bar
-			var sbar = p_node.get_node_or_null("StaminaBar")
-			if sbar and p_data.has("stm"):
-				var stm_val = max(0.01, float(p_data["stm"]))
+			var sbar = players[i].get_node_or_null("StaminaBar")
+			if sbar and p1_list[i].has("stm"):
+				var stm_val = max(0.01, float(p1_list[i]["stm"]))
 				sbar.scale.x = stm_val
 				
-	# 3. HUD Updates
+			# Diegetic UI Update (Phase 23)
+			var dui = get_node_or_null("DiegeticUI")
+			if dui and not players[i].has_node("LabelMesh"):
+				dui.create_label(i, players[i])
+
+	# 3. Explainability Overlays (Phase 26)
+	if s1.has("o"):
+		var overlays = s1["o"]
+		var tv = get_node_or_null("ThoughtVisualizer")
+		if tv and overlays.has("attn") and overlays.has("v"):
+			tv.update_thoughts(players, overlays["attn"], float(overlays["v"]))
+
+	# Handle discreet UI elements (Score, Tick) from the latest state
+	_update_ui(s1)
+
+func _raw_to_vec3(raw) -> Vector3:
+	return Vector3(
+		float(raw[0]) / 10.0 - 30.0,
+		0.0,
+		float(raw[1]) / 10.0 - 20.0
+	)
+
+func _update_ui(state: Dictionary):
+	_update_billboards(state)
 	if state.has("s"):
 		var blue = get_node_or_null("HUD/HBoxContainer/ScoreBlue")
 		var red = get_node_or_null("HUD/HBoxContainer/ScoreRed")
 		if blue and red:
 			blue.text = "BLUE: %d" % int(state["s"][0])
 			red.text = "%d :RED" % int(state["s"][1])
-			
-	if state.has("t"):
-		var tlabel = get_node_or_null("HUD/TimeLabel")
-		if tlabel:
-			var total_seconds = int(state["t"] / 60.0) # tick to seconds
-			tlabel.text = "%02d:%02d" % [total_seconds / 60, total_seconds % 60]
+	# ... (remaining HUD updates)
 
 	# 4. Handle Events
 	if state.has("e"):
@@ -286,13 +340,40 @@ func _update_visuals(state: Dictionary):
 				_on_goal_scored()
 				last_total_score = int(state["score"][0]) + int(state["score"][1])
 			
-	if state.has("time"):
-		var tlabel = get_node_or_null("HUD/HBoxContainer/TimeLabel")
+	if state.has("t"):
+		var tlabel = get_node_or_null("HUD/TimeLabel")
 		if tlabel:
-			var total_seconds = int(state["time"])
+			var total_seconds = int(state["t"] / 60.0)
 			var m = total_seconds / 60
 			var s = total_seconds % 60
 			tlabel.text = "%02d:%02d" % [m, s]
+			
+	# Update Shader uniform and Dynamic Lights
+	if state.has("b"):
+		var b_pos_raw = state["b"]["p"]
+		var field_mesh = get_node_or_null("../Pitch")
+		if field_mesh and field_mesh.material_override is ShaderMaterial:
+			var uv_ball = Vector2(float(b_pos_raw[0]) / 600.0, float(b_pos_raw[1]) / 400.0)
+			field_mesh.material_override.set_shader_parameter("ball_pos", uv_ball)
+
+	# Update Player Auras/Lights
+	if state.has("p"):
+		var p_list = state["p"]
+		for i in range(min(p_list.size(), players.size())):
+			var p_node = players[i]
+			var light = p_node.get_node_or_null("PulseLight")
+			if not light:
+				light = OmniLight3D.new()
+				light.name = "PulseLight"
+				light.omni_range = 8.0
+				light.light_energy = 2.0
+				light.light_color = Color(0.2, 0.8, 1.0) if i < 7 else Color(1.0, 0.3, 0.5)
+				p_node.add_child(light)
+			
+	if state.has("m"):
+		var crowd = get_node_or_null("CrowdSystem")
+		if crowd and state["m"].has("mood"):
+			crowd.update_excitement(float(state["m"]["mood"]))
 			
 	if state.has("spec"):
 		var slabel = get_node_or_null("HUD/SpecLabel")

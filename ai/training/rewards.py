@@ -1,37 +1,32 @@
 import numpy as np
-from typing import Dict, Any, Optional
+from typing import List, Dict, Any, Optional
 from sim.core.state import MatchState, TeamID
 
 class RewardShaper:
     """
-    Advanced reward shaping for Neon Gridiron ULTRA.
-    Balances completion of objectives with auxiliary shaping for faster convergence.
+    Advanced Meta-Reward Shaper for ULTRA Phase 2.
+    Combines sparse goals with dense hierarchical metrics.
     """
-    def __init__(self, config: Optional[Dict[str, Any]] = None):
-        self.config = config or {
-            "goal_reward": 10.0,
-            "ball_dist_coeff": 0.01,
-            "possession_bonus": 0.05,
-            "spectacle_bonus": 0.1
-        }
+    def __init__(self, config: Dict[str, Any] = None):
+        self.cfg = config or {}
+        self.w_goal = self.cfg.get("w_goal", 10.0)
+        self.w_ball_dist = self.cfg.get("w_ball_dist", 0.01)
+        self.w_possession = self.cfg.get("w_possession", 0.1)
+        self.w_spectacle = self.cfg.get("w_spectacle", 0.05)
+        self.w_coordination = self.cfg.get("w_coordination", 0.02)
 
-    def compute(self, state: MatchState, goal_team: Optional[TeamID]) -> float:
-        reward = 0.0
+    def compute_meta_reward(self, state: Any, events: List[Any]) -> Dict[str, float]:
+        rewards = {"total": 0.0, "goal": 0.0, "dense": 0.0, "spec": 0.0}
         
-        # 1. Sparse Goal Reward
-        if goal_team == TeamID.BLUE:
-            reward += self.config["goal_reward"]
-        elif goal_team == TeamID.RED:
-            reward -= self.config["goal_reward"]
-            
-        # 2. Ball Proximity (Encourage offensive pressure)
-        # We find the closest player to the ball
+        # 1. Sparse Goal Rewards
+        for ev in events:
+            if ev.event_type == "GOAL":
+                rewards["goal"] += self.w_goal
+                
+        # 2. Dense Ball Proximity (Multi-agent sum)
         ball_pos = state.ball.pos
-        min_dist = float('inf')
+        avg_dist = 0
         for p in state.players:
-            if p.team == TeamID.BLUE:
-                dist = np.linalg.norm(ball_pos - p.pos)
-                if dist < min_dist:
                     min_dist = dist
         
         reward += self.config["ball_dist_coeff"] * (1.0 / (1.0 + min_dist / 100.0))
