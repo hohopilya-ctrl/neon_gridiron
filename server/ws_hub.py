@@ -1,10 +1,13 @@
 import asyncio
 import json
 from typing import Set
+
 from fastapi import WebSocket
+
 
 class WebSocketHub:
     """Manages WebSocket clients and handles real-time broadcasting."""
+
     def __init__(self):
         self.clients: Set[WebSocket] = set()
         self.queue: asyncio.Queue = asyncio.Queue(maxsize=4)
@@ -25,9 +28,9 @@ class WebSocketHub:
             frame = await self.queue.get()
             if not self.clients:
                 continue
-                
+
             payload = json.dumps(frame)
-            
+
             # Send to all clients, cleaning up broken ones
             stale = []
             for client in self.clients:
@@ -35,10 +38,10 @@ class WebSocketHub:
                     await client.send_text(payload)
                 except Exception:
                     stale.append(client)
-            
+
             for s in stale:
                 self.unregister(s)
-            
+
             self.queue.task_done()
 
     def push_frame(self, frame: dict):
@@ -50,5 +53,6 @@ class WebSocketHub:
             except asyncio.QueueEmpty:
                 pass
         self.queue.put_nowait(frame)
+
 
 hub = WebSocketHub()
