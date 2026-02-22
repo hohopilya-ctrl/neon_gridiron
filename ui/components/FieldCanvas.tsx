@@ -1,7 +1,8 @@
 "use client";
 import React, { useRef, useEffect } from 'react';
+import { Frame } from '../lib/frame';
 
-export default function FieldCanvas({ frame }: { frame: any }) {
+export default function FieldCanvas({ frame }: { frame: Frame | null }) {
     const canvasRef = useRef<HTMLCanvasElement>(null);
 
     useEffect(() => {
@@ -10,73 +11,78 @@ export default function FieldCanvas({ frame }: { frame: any }) {
         const ctx = canvas.getContext('2d');
         if (!ctx) return;
 
-        // Background
-        ctx.fillStyle = '#0f172a';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        // Clear and setup
+        const w = canvas.width;
+        const h = canvas.height;
+        ctx.fillStyle = '#020617';
+        ctx.fillRect(0, 0, w, h);
 
-        // Grid
+        // Grid (Cyberpunk style)
         ctx.strokeStyle = '#1e293b';
-        ctx.lineWidth = 1;
-        for (let i = 0; i < canvas.width; i += 40) {
-            ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, canvas.height); ctx.stroke();
+        ctx.lineWidth = 0.5;
+        for (let i = 0; i < w; i += 40) {
+            ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, h); ctx.stroke();
         }
-        for (let i = 0; i < canvas.height; i += 40) {
-            ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(canvas.width, i); ctx.stroke();
-        }
-
-        // Ball
-        if (frame.ball) {
-            ctx.fillStyle = '#ffffff';
-            ctx.shadowBlur = 10;
-            ctx.shadowColor = '#ffffff';
-            ctx.beginPath();
-            ctx.arc(frame.ball.pos[0] * 1, frame.ball.pos[1] * 1, 3, 0, Math.PI * 2);
-            ctx.fill();
+        for (let i = 0; i < h; i += 40) {
+            ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(w, i); ctx.stroke();
         }
 
-        // Players
-        if (frame.p) {
-            frame.p.forEach((p: any) => {
-                ctx.fillStyle = p.team === 0 ? '#3b82f6' : '#f43f5e';
+        // Center line
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.moveTo(w / 2, 0); ctx.lineTo(w / 2, h); ctx.stroke();
+
+        // Players (v2.2.0: frame.players)
+        if (frame.players) {
+            frame.players.forEach((p) => {
+                const isBlue = p.team === 'BLUE';
+                ctx.fillStyle = isBlue ? '#3b82f6' : '#f43f5e';
+                ctx.shadowBlur = 15;
                 ctx.shadowColor = ctx.fillStyle;
+
                 ctx.beginPath();
-                ctx.arc(p.pos[0] * 1, p.pos[1] * 1, 5, 0, Math.PI * 2);
+                ctx.arc(p.pos[0], p.pos[1], 6, 0, Math.PI * 2);
                 ctx.fill();
+
+                // Direction indicator
+                if (Math.abs(p.vel[0]) > 0.1 || Math.abs(p.vel[1]) > 0.1) {
+                    ctx.strokeStyle = isBlue ? '#60a5fa' : '#fb7185';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.moveTo(p.pos[0], p.pos[1]);
+                    ctx.lineTo(p.pos[0] + p.vel[0] * 0.2, p.pos[1] + p.vel[1] * 0.2);
+                    ctx.stroke();
+                }
             });
         }
 
-        // Overlays (Explainability)
-        if (frame.o) {
-            // 1. Attention Map (Draw lines between agents)
-            if (frame.o.attn) {
-                ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
-                ctx.lineWidth = 1;
-                // Simplified visualization of high-attention links
-                const players = frame.p;
-                for (let i = 0; i < players.length; i++) {
-                    for (let j = i + 1; j < players.length; j++) {
-                        const weight = frame.o.attn[i][j] || 0;
-                        if (weight > 0.5) {
-                            ctx.beginPath();
-                            ctx.moveTo(players[i].pos[0] * 1, players[i].pos[1] * 1);
-                            ctx.lineTo(players[j].pos[0] * 1, players[j].pos[1] * 1);
-                            ctx.stroke();
-                        }
+        // Ball (v2.2.0: frame.ball)
+        if (frame.ball) {
+            const bp = frame.ball.pos;
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowBlur = 20;
+            ctx.shadowColor = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(bp[0], bp[1], 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+
+        // Overlays (Phase 26 logic)
+        if (frame.overlays?.attn && frame.players) {
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.lineWidth = 1;
+            const players = frame.players;
+            for (let i = 0; i < players.length; i++) {
+                for (let j = i + 1; j < players.length; j++) {
+                    const weight = frame.overlays.attn[i][j] || 0;
+                    if (weight > 0.5) {
+                        ctx.beginPath();
+                        ctx.moveTo(players[i].pos[0], players[i].pos[1]);
+                        ctx.lineTo(players[j].pos[0], players[j].pos[1]);
+                        ctx.stroke();
                     }
                 }
-            }
-
-            // 2. Planned Paths (Trajectories)
-            if (frame.o.paths) {
-                ctx.setLineDash([5, 5]);
-                ctx.strokeStyle = '#22d3ee';
-                frame.o.paths.forEach((path: any) => {
-                    ctx.beginPath();
-                    ctx.moveTo(path[0].x * 1, path[0].y * 1);
-                    path.slice(1).forEach((pt: any) => ctx.lineTo(pt.x * 1, pt.y * 1));
-                    ctx.stroke();
-                });
-                ctx.setLineDash([]);
             }
         }
     }, [frame]);

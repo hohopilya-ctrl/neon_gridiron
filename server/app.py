@@ -1,51 +1,36 @@
-from typing import List
-
+import asyncio
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from .ws_hub import hub
+from .udp_ingest import ingest
 
-app = FastAPI(title="Neon Gridiron ULTRA: Telemetry Hub")
-
-
-class ConnectionManager:
-    """Manages WebSocket connections for real-time state broadcasting."""
-
-    def __init__(self):
-        self.active_connections: List[WebSocket] = []
-
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.append(websocket)
-
-    def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
-
-    async def broadcast(self, message: str):
-        for connection in self.active_connections:
-            try:
-                await connection.send_text(message)
-            except Exception:
-                # Handle stale connections
-                pass
-
-
-manager = ConnectionManager()
-
+app = FastAPI(title="Neon Gridiron ULTRA: Telemetry Hub v2")
 
 @app.get("/")
 async def root():
-    return {"status": "online", "service": "neon-gridiron-telemetry"}
-
+    return {"status": "online", "version": "2.2.0"}
 
 @app.get("/health")
 async def health():
     return {"status": "ok"}
 
-
-@app.websocket("/ws/state")
-async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
+@app.websocket("/ws/live")
+async def websocket_live(websocket: WebSocket):
+    """Canonical WebSocket endpoint for the UI live broadcast."""
+    await hub.register(websocket)
     try:
         while True:
-            # Maintain connection, maybe receive client pings
+            # Keep alive and receive any client messages
             await websocket.receive_text()
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        hub.unregister(websocket)
+
+@app.websocket("/ws/state")
+async def websocket_legacy(websocket: WebSocket):
+    """Legacy endpoint, redirecting to /ws/live logic."""
+    await websocket_live(websocket)
+
+@app.on_event("startup")
+async def startup_event():
+    # Start background tasks
+    asyncio.create_task(hub.broadcast_loop())
+    asyncio.create_task(ingest.start())
