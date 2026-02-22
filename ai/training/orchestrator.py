@@ -1,10 +1,13 @@
-from typing import List, Dict, Any, Optional
+from typing import Any, Dict, List
+
 import torch
 import torch.optim as optim
+
 from ai.models.policy import ActorCritic
-from ai.training.rewards import RewardShaper
 from ai.training.curiosity import IntrinsicCuriosityModule
 from ai.training.league import LeagueManager
+from ai.training.rewards import RewardShaper
+
 
 class PBTTrainer:
     """

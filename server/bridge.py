@@ -1,9 +1,10 @@
 import asyncio
 import socket
+from typing import Set
+
 import msgpack
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from typing import List, Set
 import uvicorn
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 app = FastAPI()
 
@@ -45,7 +46,7 @@ class TelemetryBridge:
             try:
                 data, addr = await loop.sock_recvfrom(sock, 65535)
                 await self.broadcast(data)
-            except Exception as e:
+            except Exception:
                 await asyncio.sleep(0.001)
 
 bridge = TelemetryBridge()

@@ -1,6 +1,7 @@
+from typing import Tuple
+
 import numpy as np
-from typing import List, Tuple, Optional
-from sim.core.state import PlayerState, BallState
+
 
 class MPCLitePlanner:
     """

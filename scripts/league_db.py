@@ -1,7 +1,8 @@
-import sqlite3
 import json
+import sqlite3
 from datetime import datetime
-from typing import List, Dict
+from typing import Dict
+
 
 class LeagueDB:
     """

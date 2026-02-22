@@ -1,7 +1,9 @@
 import asyncio
 import json
 from typing import Set
+
 from fastapi import WebSocket
+
 
 class WebSocketHub:
     """Manages WebSocket clients and handles real-time broadcasting."""

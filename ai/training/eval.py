@@ -1,6 +1,9 @@
-from typing import List, Dict, Any
+from typing import Any, Dict
+
 import numpy as np
+
 from ai.env.neon_env import NeonFootballEnv
+
 
 class EvalHarness:
     """

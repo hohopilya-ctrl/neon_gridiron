@@ -1,6 +1,5 @@
-import gymnasium as gym
 from ai.env.neon_env import NeonFootballEnv
-import numpy as np
+
 
 def smoke_test():
     print("Starting ULTRA Vertical Slice Smoke Test...")

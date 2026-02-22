@@ -1,8 +1,11 @@
 import asyncio
 import socket
+
 import msgpack
-from .ws_hub import hub
+
 from .frame_protocol import normalize_frame
+from .ws_hub import hub
+
 
 class UDPIngest:
     """Ingests legacy UDP telemetry and pushes it to the WS hub."""
@@ -29,7 +32,7 @@ class UDPIngest:
                 
                 # 3. Push to hub
                 hub.push_frame(canonical)
-            except Exception as e:
+            except Exception:
                 # Tight loop, minimal sleep on error
                 await asyncio.sleep(0.001)
 

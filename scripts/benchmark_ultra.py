@@ -1,6 +1,7 @@
 import time
-import numpy as np
+
 from ai.env.neon_env import NeonFootballEnv
+
 
 def run_benchmark(steps: int = 1000):
     print(f"Starting ULTRA Benchmark ({steps} steps)...")

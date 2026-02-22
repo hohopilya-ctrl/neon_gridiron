@@ -1,6 +1,9 @@
-import torch
 import time
+
+import torch
+
 from ai.env.ultra_vec_env import UltraVectorizedEnv
+
 
 def run_benchmark(num_envs=1024, num_steps=1000, device="cuda"):
     print(f"🚀 ULTRA Benchmark: {num_envs} envs, {num_steps} steps, device={device}")
@@ -30,11 +33,11 @@ def run_benchmark(num_envs=1024, num_steps=1000, device="cuda"):
     duration = end_time - start_time
     sps = total_steps / duration
     
-    print(f"--------------------------------------")
+    print("--------------------------------------")
     print(f"Execution Time: {duration:.2f} seconds")
     print(f"Total Steps: {total_steps}")
     print(f"Throughput: {sps:,.0f} STEPS/SEC")
-    print(f"--------------------------------------")
+    print("--------------------------------------")
 
 if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"

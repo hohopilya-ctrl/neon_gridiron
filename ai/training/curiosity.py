@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+
 class IntrinsicCuriosityModule(nn.Module):
     """
     Implements Curiosity-driven exploration (Pathak et al.).

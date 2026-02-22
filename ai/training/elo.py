@@ -1,5 +1,6 @@
 import math
-from typing import Dict, List, Tuple
+from typing import Tuple
+
 
 class EloSystem:
     def __init__(self, k_factor: int = 32):

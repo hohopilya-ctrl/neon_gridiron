@@ -1,8 +1,10 @@
 from __future__ import annotations
+
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple, Any
-import numpy as np
+from typing import Any, Dict, List, Tuple
+
 import msgpack
+
 
 @dataclass(frozen=True)
 class TelemetryFrame:

@@ -1,6 +1,7 @@
+
 import torch
 import torch.nn as nn
-from typing import Dict, List, Optional
+
 
 class OpponentPredictor(nn.Module):
     """

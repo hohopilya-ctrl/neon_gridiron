@@ -1,8 +1,10 @@
 import json
 import os
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Tuple
+
 from ai.training.elo import EloSystem
+
 
 class LeagueManager:
     """
