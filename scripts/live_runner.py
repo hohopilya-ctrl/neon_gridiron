@@ -7,8 +7,12 @@ from ai.env.neon_env import NeonFootballEnv
 from ai.training.orchestrator import PBTTrainer
 
 
-def run_live_sim(host="127.0.0.1", port=4242):
-    print(f"ULTRA Phase 2 Live Runner: {host}:{port}")
+from server.frame_normalize import get_udp_port
+
+def run_live_sim(host="127.0.0.1", port=None):
+    if port is None:
+        port = get_udp_port()
+    print(f"ULTRA Patch Set 1 Live Runner: {host}:{port}")
     env = NeonFootballEnv({"team_size": 7})
     trainer = PBTTrainer(num_agents=2)  # 2 teams
 
