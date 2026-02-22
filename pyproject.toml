@@ -3,8 +3,8 @@ requires = ["setuptools>=61.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "neon_gridiron"
-version = "0.3.0"
+name = "neon-gridiron-ultra"
+version = "1.0.0"
 description = "Professional 7v7 Futuristic Football MARL Platform"
 readme = "README.md"
 requires-python = ">=3.12"

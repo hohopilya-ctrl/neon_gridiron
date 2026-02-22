@@ -1,7 +1,3 @@
-# OUTPUT PART 8 / Y
-# Neon Gridiron ULTRA: Frontend Components and Styles
-
-# File: ui / components / FieldCanvas.tsx
 "use client";
 import React, { useRef, useEffect } from 'react';
 
@@ -29,103 +25,61 @@ export default function FieldCanvas({ frame }: { frame: any }) {
         }
 
         // Ball
-        ctx.fillStyle = '#ffffff';
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = '#ffffff';
-        ctx.beginPath();
-        ctx.arc(frame.ball.x * 10, frame.ball.y * 10, 3, 0, Math.PI * 2);
-        ctx.fill();
+        if (frame.ball) {
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowBlur = 10;
+            ctx.shadowColor = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(frame.ball.pos[0] * 1, frame.ball.pos[1] * 1, 3, 0, Math.PI * 2);
+            ctx.fill();
+        }
 
         // Players
-        frame.players.forEach((p: any) => {
-            ctx.fillStyle = p.team === 0 ? '#3b82f6' : '#f43f5e';
-            ctx.shadowColor = ctx.fillStyle;
-            ctx.beginPath();
-            ctx.arc(p.pos[0] * 10, p.pos[1] * 10, 5, 0, Math.PI * 2);
-            ctx.fill();
-        });
+        if (frame.p) {
+            frame.p.forEach((p: any) => {
+                ctx.fillStyle = p.team === 0 ? '#3b82f6' : '#f43f5e';
+                ctx.shadowColor = ctx.fillStyle;
+                ctx.beginPath();
+                ctx.arc(p.pos[0] * 1, p.pos[1] * 1, 5, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        // Overlays (Explainability)
+        if (frame.o) {
+            // 1. Attention Map (Draw lines between agents)
+            if (frame.o.attn) {
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+                ctx.lineWidth = 1;
+                // Simplified visualization of high-attention links
+                const players = frame.p;
+                for (let i = 0; i < players.length; i++) {
+                    for (let j = i + 1; j < players.length; j++) {
+                        const weight = frame.o.attn[i][j] || 0;
+                        if (weight > 0.5) {
+                            ctx.beginPath();
+                            ctx.moveTo(players[i].pos[0] * 1, players[i].pos[1] * 1);
+                            ctx.lineTo(players[j].pos[0] * 1, players[j].pos[1] * 1);
+                            ctx.stroke();
+                        }
+                    }
+                }
+            }
+
+            // 2. Planned Paths (Trajectories)
+            if (frame.o.paths) {
+                ctx.setLineDash([5, 5]);
+                ctx.strokeStyle = '#22d3ee';
+                frame.o.paths.forEach((path: any) => {
+                    ctx.beginPath();
+                    ctx.moveTo(path[0].x * 1, path[0].y * 1);
+                    path.slice(1).forEach((pt: any) => ctx.lineTo(pt.x * 1, pt.y * 1));
+                    ctx.stroke();
+                });
+                ctx.setLineDash([]);
+            }
+        }
     }, [frame]);
 
     return <canvas ref={canvasRef} width={600} height={400} className="w-full h-full" />;
 }
-# lines: 45
-
-# File: ui / styles / globals.css
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-:root {
-    --neon - cyan: #22d3ee;
-    --neon - pink: #f43f5e;
-}
-
-body {
-    @apply bg - slate - 950 text - slate - 200;
-    background - image: radial - gradient(circle at 50 % 50 %, #1e1b4b 0 %, #020617 100 %);
-}
-
-.neon - border {
-    @apply border - 2 border - cyan - 500 shadow - [0_0_15px_rgba(34, 211, 238, 0.5)];
-}
-
-.neon - text {
-    @apply text - cyan - 400 drop - shadow - [0_0_8px_rgba(34, 211, 238, 0.8)];
-}
-# lines: 25
-
-# File: tools / validate_configs.py
-import yaml
-import sys
-import os
-
-def validate():
-config_dir = "configs"
-required_files = ["match_rules.yaml", "rewards.yaml", "abilities_core.yaml"]
-
-for f in required_files:
-    path = os.path.join(config_dir, f)
-if not os.path.exists(path):
-print(f"CRITICAL: Missing config {f}")
-sys.exit(1)
-
-with open(path, 'r') as stream:
-try:
-data = yaml.safe_load(stream)
-print(f"OK: {f} is valid YAML")
-            except Exception as e:
-print(f"FAIL: {f} syntax error: {e}")
-sys.exit(1)
-
-if __name__ == "__main__":
-    validate()
-# lines: 25
-
-# File: pyproject.toml
-[tool.ruff]
-line - length = 100
-target - version = "py312"
-
-[tool.mypy]
-python_version = "3.12"
-strict = true
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = "test_*.py"
-
-[project]
-name = "neon-gridiron-ultra"
-version = "1.0.0"
-dependencies = [
-    "gymnasium>=0.29.0",
-    "pymunk>=6.5.0",
-    "torch>=2.1.0",
-    "fastapi>=0.104.0",
-    "uvicorn>=0.24.0",
-    "pyyaml>=6.0.0",
-    "numpy>=1.26.0"
-]
-# lines: 30
-
-# END OF PART 8 - to continue output next part.

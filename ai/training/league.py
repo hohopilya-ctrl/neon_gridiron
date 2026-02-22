@@ -1,75 +1,59 @@
 import json
-import time
-from pathlib import Path
-from typing import Dict
+import os
+from datetime import datetime
+from typing import Dict, List, Optional
+from ai.training.elo import EloSystem
 
-from ai.env.neon_env import NeonFootballEnv
-from ai.training.self_play import SelfPlayManager
-from sim.core.rng import DeterministicRNG
-from sim.core.state import TeamID
-
-
-class EloSystem:
-    def __init__(self, k_factor: float = 32.0):
-        self.k = k_factor
-
-    def calculate_new_ratings(self, player_elo: float, opponent_elo: float, result: float) -> float:
-        """result: 1.0 for win, 0.5 for draw, 0.0 for loss."""
-        expected = 1.0 / (1.0 + 10 ** ((opponent_elo - player_elo) / 400.0))
-        return player_elo + self.k * (result - expected)
-
-
-class LeagueEngine:
+class LeagueManager:
     """
-    High-level manager for concurrent training and evaluation.
-    Tracks agent strength (Elo) and manages the competitive evolution.
+    Manages the population of agents and their rankings.
+    Saves and loads league state for persistent training.
     """
-
-    def __init__(self, config: Dict):
-        self.config = config
-        self.rng = DeterministicRNG(seed=config.get("seed", 42))
-        self.self_play = SelfPlayManager("models/pool", self.rng)
+    def __init__(self, save_path: str = "data/league.json"):
+        self.save_path = save_path
+        self.agents: Dict[str, Dict] = {} # id -> {rating, version, games}
         self.elo = EloSystem()
+        self.load()
 
-        self.model_metadata: Dict[str, Dict] = {}
-        self._load_registry()
+    def add_agent(self, agent_id: str, version: str = "v1"):
+        if agent_id not in self.agents:
+            self.agents[agent_id] = {
+                "rating": 1000.0,
+                "version": version,
+                "games": 0,
+                "last_update": datetime.now().isoformat()
+            }
 
-    def _load_registry(self):
-        pool_path = Path("models/pool")
-        pool_path.mkdir(parents=True, exist_ok=True)
-        # Load existing .json metadata files
+    def record_match(self, blue_id: str, red_id: str, blue_score: int, red_score: int):
+        if blue_score > red_score:
+            outcome = 1.0
+        elif blue_score < red_score:
+            outcome = 0.0
+        else:
+            outcome = 0.5
+            
+        r_blue = self.agents[blue_id]["rating"]
+        r_red = self.agents[red_id]["rating"]
+        
+        new_blue, new_red = self.elo.update_ratings(r_blue, r_red, outcome)
+        
+        self.agents[blue_id]["rating"] = new_blue
+        self.agents[blue_id]["games"] += 1
+        self.agents[red_id]["rating"] = new_red
+        self.agents[red_id]["games"] += 1
+        
+        self.save()
 
-    def run_evaluation(self, learner, opponent_path: str, num_episodes: int = 5) -> float:
-        """Evaluate learner against a specific snapshot."""
-        env = NeonFootballEnv({"seed": self.rng.integers(0, 1000000)})
-        total_score = 0.0
+    def get_leaderboard(self) -> List[Tuple[str, float]]:
+        sorted_agents = sorted(self.agents.items(), key=lambda x: x[1]["rating"], reverse=True)
+        return [(k, v["rating"]) for k, v in sorted_agents]
 
-        for _ in range(num_episodes):
-            obs, _ = env.reset()
-            done = False
-            while not done:
-                # Placeholder: Both teams same policy or heuristic
-                action, _ = learner.predict(obs)
-                obs, reward, terminated, truncated, info = env.step(action)
-                done = terminated or truncated
+    def save(self):
+        os.makedirs(os.path.dirname(self.save_path), exist_ok=True)
+        with open(self.save_path, 'w') as f:
+            json.dump(self.agents, f, indent=4)
 
-            final_score = env.state.score
-            if final_score[TeamID.BLUE] > final_score[TeamID.RED]:
-                total_score += 1.0
-            elif final_score[TeamID.BLUE] == final_score[TeamID.RED]:
-                total_score += 0.5
-
-        return total_score / num_episodes
-
-    def save_snapshot(self, model, name: str, current_elo: float):
-        path = f"models/pool/{name}.zip"
-        meta_path = f"models/pool/{name}.json"
-
-        model.save(path)
-        with open(meta_path, "w") as f:
-            json.dump(
-                {"name": name, "elo": current_elo, "timestamp": time.time(), "metrics": {}}, f
-            )
-
-        self.self_play.add_to_pool(path, current_elo, name)
-        print(f"🏆 League: New snapshot {name} saved with Elo {current_elo:.0f}")
+    def load(self):
+        if os.path.exists(self.save_path):
+            with open(self.save_path, 'r') as f:
+                self.agents = json.load(f)

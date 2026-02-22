@@ -1,0 +1,24 @@
+# Neon Gridiron ULTRA: Season 1 Meta Configuration
+# Patch 1.0.0 - "Genesis"
+
+global:
+  physics_dt: 0.016666
+
+abilities:
+  dash:
+    stamina_cost: 25.0
+    impulse: 5500.0
+    cooldown_ticks: 60
+  shield:
+    stamina_cost: 40.0
+    duration_ticks: 45
+    cooldown_ticks: 120
+  surge:
+    stamina_cost: 60.0
+    speed_mult: 1.5
+    duration_ticks: 90
+    cooldown_ticks: 300
+
+rules:
+  goal_threshold: 80.0
+  foul_impulse_threshold: 20.0
