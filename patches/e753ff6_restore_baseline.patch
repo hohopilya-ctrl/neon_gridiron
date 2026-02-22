@@ -1,0 +1,1113 @@
+From e753ff680b027c575cbcc6771dc09db5db6a008e Mon Sep 17 00:00:00 2001
+From: Codex <codex@openai.com>
+Date: Sun, 22 Feb 2026 11:34:36 +0000
+Subject: [PATCH] Restore missing ai.env and ui libs; fix training bugs and
+ repo lint/tests
+
+### Motivation
+- Restore a runnable repository baseline so unit tests and the UI live page can be executed and developed against a stable API.
+- Surface and fix functional defects that prevented test collection and introduced runtime errors in training and telemetry code.
+- Reduce static-quality noise (imports, undefined names, unused variables) so `ruff` and `pytest` can be used reliably in CI.
+
+### Description
+- Added a minimal deterministic Gym environment at `ai/env/neon_env.py` and package export `ai/env/__init__.py` to satisfy imports and tests for `NeonFootballEnv`.
+- Added small UI client modules `ui/lib/frame.ts` and `ui/lib/ws.ts` to normalize incoming telemetry frames and provide a lightweight WebSocket client expected by the live UI.
+- Fixed functional defects in training utilities including importing `torch.nn.functional as F` and cleaning up `DreamerTrainer` and reimplemented `RewardShaper.compute_meta_reward` to return a structured reward dict.
+- Cleaned up a number of repo-wide issues (import ordering, unused imports/variables, serialization and config helpers, server/bridge/udp hub consistency) so static checks complete successfully.
+
+### Testing
+- Ran `python -m ruff check .` and resolved reported issues until the check passed. (passed)
+- Ran `python -m pytest -q` and all tests passed: `8 passed`. (passed)
+---
+ ai/brain/opponent_model.py   |   3 +-
+ ai/brain/planner.py          |   5 +-
+ ai/env/__init__.py           |   5 ++
+ ai/env/neon_env.py           | 130 +++++++++++++++++++++++++++++++++++
+ ai/training/curiosity.py     |   1 +
+ ai/training/dreamer.py       |  46 ++++++-------
+ ai/training/elo.py           |   3 +-
+ ai/training/eval.py          |   5 +-
+ ai/training/league.py        |   4 +-
+ ai/training/orchestrator.py  |   7 +-
+ ai/training/rewards.py       |  46 +++++++------
+ docs/Project_Analysis.md     |  60 ++++++++++++++++
+ scripts/benchmark_ultra.py   |   3 +-
+ scripts/benchmark_vec_env.py |   9 ++-
+ scripts/league_db.py         |   5 +-
+ scripts/live_runner.py       |   7 +-
+ scripts/smoke_test_ultra.py  |   3 +-
+ scripts/stress_test_ultra.py |  19 ++---
+ server/app.py                |   4 +-
+ server/bridge.py             |   7 +-
+ server/frame_protocol.py     |   5 +-
+ server/udp_ingest.py         |   7 +-
+ server/ws_hub.py             |   2 +
+ sim/core/abilities.py        |  55 +++++++++------
+ sim/core/serialization.py    |  13 ++--
+ sim/core/state.py            |   5 +-
+ sim/ultra/vectorized_phys.py |   5 +-
+ telemetry/frame.py           |   6 +-
+ tools/validate_configs.py    |  24 ++++---
+ ui/lib/frame.ts              |  38 ++++++++++
+ ui/lib/ws.ts                 |  27 ++++++++
+ 31 files changed, 438 insertions(+), 121 deletions(-)
+ create mode 100644 ai/env/__init__.py
+ create mode 100644 ai/env/neon_env.py
+ create mode 100644 docs/Project_Analysis.md
+ create mode 100644 ui/lib/frame.ts
+ create mode 100644 ui/lib/ws.ts
+
+diff --git a/ai/brain/opponent_model.py b/ai/brain/opponent_model.py
+index fc12a81..3b7a298 100644
+--- a/ai/brain/opponent_model.py
++++ b/ai/brain/opponent_model.py
+@@ -1,6 +1,7 @@
++
+ import torch
+ import torch.nn as nn
+-from typing import Dict, List, Optional
++
+ 
+ class OpponentPredictor(nn.Module):
+     """
+diff --git a/ai/brain/planner.py b/ai/brain/planner.py
+index da6d240..8f21151 100644
+--- a/ai/brain/planner.py
++++ b/ai/brain/planner.py
+@@ -1,6 +1,7 @@
++from typing import Tuple
++
+ import numpy as np
+-from typing import List, Tuple, Optional
+-from sim.core.state import PlayerState, BallState
++
+ 
+ class MPCLitePlanner:
+     """
+diff --git a/ai/env/__init__.py b/ai/env/__init__.py
+new file mode 100644
+index 0000000..ba45dfb
+--- /dev/null
++++ b/ai/env/__init__.py
+@@ -0,0 +1,5 @@
++"""Environment package for Neon Gridiron."""
++
++from ai.env.neon_env import NeonFootballEnv
++
++__all__ = ["NeonFootballEnv"]
+diff --git a/ai/env/neon_env.py b/ai/env/neon_env.py
+new file mode 100644
+index 0000000..4507f7a
+--- /dev/null
++++ b/ai/env/neon_env.py
+@@ -0,0 +1,130 @@
++from __future__ import annotations
++
++from typing import Any
++
++import gymnasium as gym
++import numpy as np
++from gymnasium import spaces
++
++from sim.core.rng import DeterministicRNG
++from sim.core.rules import RulesEngine
++from sim.core.state import BallState, MatchState, PlayerState, TeamID
++
++
++class NeonFootballEnv(gym.Env[np.ndarray, np.ndarray]):
++    """Minimal deterministic 7v7 environment used by tests and training stubs."""
++
++    metadata = {"render_modes": []}
++
++    def __init__(self, config: dict[str, Any] | None = None):
++        super().__init__()
++        self.config = config or {}
++        self.seed_value = int(self.config.get("seed", 42))
++        self.rng = DeterministicRNG(self.seed_value)
++
++        self.action_space = spaces.Box(low=-1.0, high=1.0, shape=(28,), dtype=np.float32)
++        self.observation_space = spaces.Box(
++            low=-np.inf,
++            high=np.inf,
++            shape=(64,),
++            dtype=np.float32,
++        )
++
++        self.rules = RulesEngine((600.0, 400.0))
++        self.state = MatchState(players=[], ball=BallState())
++        self.max_steps = 600
++        self._step_count = 0
++
++    def reset(
++        self,
++        *,
++        seed: int | None = None,
++        options: dict[str, Any] | None = None,
++    ) -> tuple[np.ndarray, dict[str, Any]]:
++        del options
++        if seed is not None:
++            self.seed_value = int(seed)
++        self.rng.reset(self.seed_value)
++        self._step_count = 0
++
++        self.state.tick = 0
++        self.state.score = {TeamID.BLUE: 0, TeamID.RED: 0}
++        self.state.events = []
++        self.state.ball = BallState(
++            pos=np.array([300.0, 200.0], dtype=np.float32),
++            vel=np.zeros(2, dtype=np.float32),
++        )
++
++        self.state.players = []
++        for idx in range(7):
++            self.state.players.append(
++                PlayerState(
++                    id=f"blue_{idx}",
++                    team=TeamID.BLUE,
++                    pos=np.array([120.0 + idx * 20.0, 60.0 + idx * 40.0], dtype=np.float32),
++                    vel=np.zeros(2, dtype=np.float32),
++                )
++            )
++        for idx in range(7):
++            self.state.players.append(
++                PlayerState(
++                    id=f"red_{idx}",
++                    team=TeamID.RED,
++                    pos=np.array([480.0 - idx * 20.0, 60.0 + idx * 40.0], dtype=np.float32),
++                    vel=np.zeros(2, dtype=np.float32),
++                )
++            )
++
++        return self._build_observation(), {"seed": self.seed_value}
++
++    def step(self, action: np.ndarray) -> tuple[np.ndarray, float, bool, bool, dict[str, Any]]:
++        action = np.asarray(action, dtype=np.float32).reshape(self.action_space.shape)
++
++        self.state.tick += 1
++        self._step_count += 1
++
++        # Apply deterministic motion from action chunks [dx, dy, kick, dash]
++        for idx, player in enumerate(self.state.players):
++            base = idx * 2
++            force = action[base : base + 2]
++            player.vel = np.clip(force * 6.0, -6.0, 6.0)
++            player.pos = player.pos + player.vel
++            player.pos[0] = np.clip(player.pos[0], 0.0, 600.0)
++            player.pos[1] = np.clip(player.pos[1], 0.0, 400.0)
++
++        # Ball drifts deterministically toward average player impulse
++        impulse = float(np.mean(action))
++        self.state.ball.vel = np.array([impulse * 1.5, -impulse * 1.5], dtype=np.float32)
++        self.state.ball.pos = np.clip(
++            self.state.ball.pos + self.state.ball.vel,
++            np.array([0.0, 0.0], dtype=np.float32),
++            np.array([600.0, 400.0], dtype=np.float32),
++        )
++
++        reward = float(-np.linalg.norm(self.state.ball.pos - np.array([300.0, 200.0], dtype=np.float32)) / 1000.0)
++
++        goal_team = self.rules.check_goal(self.state.ball.pos)
++        terminated = goal_team is not None
++        if goal_team is TeamID.BLUE:
++            self.state.score[TeamID.BLUE] += 1
++            reward += 1.0
++        elif goal_team is TeamID.RED:
++            self.state.score[TeamID.RED] += 1
++            reward -= 1.0
++
++        truncated = self._step_count >= self.max_steps
++
++        return self._build_observation(), reward, bool(terminated), bool(truncated), {}
++
++    def _build_observation(self) -> np.ndarray:
++        obs = np.zeros(64, dtype=np.float32)
++        obs[0:2] = self.state.ball.pos / np.array([600.0, 400.0], dtype=np.float32)
++        obs[2:4] = self.state.ball.vel / 10.0
++
++        cursor = 4
++        for player in self.state.players[:14]:
++            obs[cursor : cursor + 2] = player.pos / np.array([600.0, 400.0], dtype=np.float32)
++            cursor += 2
++            if cursor >= 64:
++                break
++        return obs
+diff --git a/ai/training/curiosity.py b/ai/training/curiosity.py
+index e1eadff..bad844f 100644
+--- a/ai/training/curiosity.py
++++ b/ai/training/curiosity.py
+@@ -2,6 +2,7 @@ import torch
+ import torch.nn as nn
+ import torch.nn.functional as F
+ 
++
+ class IntrinsicCuriosityModule(nn.Module):
+     """
+     Implements Curiosity-driven exploration (Pathak et al.).
+diff --git a/ai/training/dreamer.py b/ai/training/dreamer.py
+index f67a614..57eb348 100644
+--- a/ai/training/dreamer.py
++++ b/ai/training/dreamer.py
+@@ -1,51 +1,53 @@
+ import torch
+-import torch.nn as nn
++import torch.nn.functional as F
+ import torch.optim as optim
+-from typing import List, Dict, Any
+-from ai.models.world_model import WorldModel
++
+ from ai.models.policy import ActorCritic
++from ai.models.world_model import WorldModel
++
+ 
+ class DreamerTrainer:
+     """
+     ULTRA Dreamer Orchestrator.
+     Trains a world model and then trains a policy in the imagined states.
+     """
++
+     def __init__(self, obs_dim: int, action_dim: int, device: str = "cuda"):
+         self.device = torch.device(device if torch.cuda.is_available() else "cpu")
+-        
++
+         self.world_model = WorldModel(obs_dim, action_dim).to(self.device)
+         self.policy = ActorCritic(embed_dim=128).to(self.device)
+-        
++
+         self.wm_optimizer = optim.Adam(self.world_model.parameters(), lr=3e-4)
+         self.policy_optimizer = optim.Adam(self.policy.parameters(), lr=1e-4)
+-        
+-        self.horizon = 15 # Imagination horizon
++
++        self.horizon = 15  # Imagination horizon
+ 
+     def train_world_model(self, obs: torch.Tensor, actions: torch.Tensor, rewards: torch.Tensor):
+         """
+         Train the world model on real data.
+         """
+         self.wm_optimizer.zero_grad()
+-        
++
+         # We assume batch of sequences [B, T, D]
+         # (Simplified for single-step for demo depth)
+         prev_state = None
+         loss = 0
+-        
++
+         # Loop through sequence
+         for t in range(obs.shape[1] - 1):
+             state, recon_obs, pred_reward, stats = self.world_model(obs[:, t], actions[:, t], prev_state)
+-            
++
+             # Reconstruction loss
+             recon_loss = F.mse_loss(recon_obs, obs[:, t])
+             # Reward prediction loss
+             reward_loss = F.mse_loss(pred_reward, rewards[:, t])
+             # KL Divergence for latent space bottleneck
+-            kl_loss = self._kl_divergence(stats) 
+-            
++            kl_loss = self._kl_divergence(stats)
++
+             loss += recon_loss + reward_loss + 0.1 * kl_loss
+             prev_state = state
+-            
++
+         loss.backward()
+         self.wm_optimizer.step()
+         return loss.item()
+@@ -55,32 +57,30 @@ class DreamerTrainer:
+         Train the actor-critic in the imagined world.
+         """
+         self.policy_optimizer.zero_grad()
+-        
++
+         # Start from a real observation and encode to latent
+         state, _, _, _ = self.world_model(start_obs, torch.zeros(start_obs.shape[0], 2).to(self.device))
+-        
+-        imagined_states = [state]
++
+         imagined_rewards = []
+-        
++
+         # Imagine horizon steps
+         for _ in range(self.horizon):
+             # 1. Policy chooses action
+             # (Simplified latent input)
+             latent = torch.cat(state, dim=-1)
+             action_logits, _, _ = self.policy.actor_backbone(latent)
+-            action = torch.tanh(action_logits) # Continuous action
+-            
++            action = torch.tanh(action_logits)  # Continuous action
++
+             # 2. World model predicts next state
+             state, _, reward, _ = self.world_model.rssm.imagine(action, state)
+-            imagined_states.append(state)
+             imagined_rewards.append(reward)
+-            
++
+         # 3. Compute value targets and update policy
+         # (Simplified RL update)
+-        loss = -torch.stack(imagined_rewards).sum() # Maximize reward
++        loss = -torch.stack(imagined_rewards).sum()  # Maximize reward
+         loss.backward()
+         self.policy_optimizer.step()
+-        
++
+         return loss.item()
+ 
+     def _kl_divergence(self, stats):
+diff --git a/ai/training/elo.py b/ai/training/elo.py
+index f28ba15..44853e8 100644
+--- a/ai/training/elo.py
++++ b/ai/training/elo.py
+@@ -1,5 +1,6 @@
+ import math
+-from typing import Dict, List, Tuple
++from typing import Tuple
++
+ 
+ class EloSystem:
+     def __init__(self, k_factor: int = 32):
+diff --git a/ai/training/eval.py b/ai/training/eval.py
+index 0e60d98..151f19c 100644
+--- a/ai/training/eval.py
++++ b/ai/training/eval.py
+@@ -1,7 +1,10 @@
+-from typing import List, Dict, Any
++from typing import Any, Dict
++
+ import numpy as np
++
+ from ai.env.neon_env import NeonFootballEnv
+ 
++
+ class EvalHarness:
+     """
+     Standardized evaluation suite for Neon agents.
+diff --git a/ai/training/league.py b/ai/training/league.py
+index d308273..15efa84 100644
+--- a/ai/training/league.py
++++ b/ai/training/league.py
+@@ -1,9 +1,11 @@
+ import json
+ import os
+ from datetime import datetime
+-from typing import Dict, List, Optional, Tuple
++from typing import Dict, List, Tuple
++
+ from ai.training.elo import EloSystem
+ 
++
+ class LeagueManager:
+     """
+     Manages the population of agents and their rankings.
+diff --git a/ai/training/orchestrator.py b/ai/training/orchestrator.py
+index cad84d3..8c6f007 100644
+--- a/ai/training/orchestrator.py
++++ b/ai/training/orchestrator.py
+@@ -1,10 +1,13 @@
+-from typing import List, Dict, Any, Optional
++from typing import Any, Dict, List
++
+ import torch
+ import torch.optim as optim
++
+ from ai.models.policy import ActorCritic
+-from ai.training.rewards import RewardShaper
+ from ai.training.curiosity import IntrinsicCuriosityModule
+ from ai.training.league import LeagueManager
++from ai.training.rewards import RewardShaper
++
+ 
+ class PBTTrainer:
+     """
+diff --git a/ai/training/rewards.py b/ai/training/rewards.py
+index 9773ef4..8435fa4 100644
+--- a/ai/training/rewards.py
++++ b/ai/training/rewards.py
+@@ -1,41 +1,43 @@
++from typing import Any, Dict, List
++
+ import numpy as np
+-from typing import List, Dict, Any, Optional
+-from sim.core.state import MatchState, TeamID
++
++from sim.core.state import TeamID
++
+ 
+ class RewardShaper:
+     """
+     Advanced Meta-Reward Shaper for ULTRA Phase 2.
+     Combines sparse goals with dense hierarchical metrics.
+     """
+-    def __init__(self, config: Dict[str, Any] = None):
++
++    def __init__(self, config: Dict[str, Any] | None = None):
+         self.cfg = config or {}
+         self.w_goal = self.cfg.get("w_goal", 10.0)
+         self.w_ball_dist = self.cfg.get("w_ball_dist", 0.01)
+         self.w_possession = self.cfg.get("w_possession", 0.1)
+         self.w_spectacle = self.cfg.get("w_spectacle", 0.05)
+-        self.w_coordination = self.cfg.get("w_coordination", 0.02)
+ 
+     def compute_meta_reward(self, state: Any, events: List[Any]) -> Dict[str, float]:
+         rewards = {"total": 0.0, "goal": 0.0, "dense": 0.0, "spec": 0.0}
+-        
++
+         # 1. Sparse Goal Rewards
+         for ev in events:
+-            if ev.event_type == "GOAL":
++            if getattr(ev, "event_type", None) == "GOAL":
+                 rewards["goal"] += self.w_goal
+-                
+-        # 2. Dense Ball Proximity (Multi-agent sum)
+-        ball_pos = state.ball.pos
+-        avg_dist = 0
+-        for p in state.players:
+-                    min_dist = dist
+-        
+-        reward += self.config["ball_dist_coeff"] * (1.0 / (1.0 + min_dist / 100.0))
+-        
++
++        # 2. Dense Ball Proximity (distance from closest player to the ball)
++        if getattr(state, "players", None):
++            ball_pos = np.asarray(state.ball.pos, dtype=np.float32)
++            min_dist = min(float(np.linalg.norm(np.asarray(p.pos) - ball_pos)) for p in state.players)
++            rewards["dense"] += self.w_ball_dist * (1.0 / (1.0 + min_dist / 100.0))
++
+         # 3. Possession Reward
+-        if state.ball.last_touch_team == TeamID.BLUE:
+-            reward += self.config["possession_bonus"]
+-            
+-        # 4. Spectacle Score (Energy conservation vs Movement)
+-        reward += state.spectacle_score * self.config["spectacle_bonus"]
+-        
+-        return float(reward)
++        if getattr(state.ball, "last_touch_team", None) == TeamID.BLUE:
++            rewards["dense"] += self.w_possession
++
++        # 4. Spectacle Score
++        rewards["spec"] += float(getattr(state, "spectacle_score", 0.0)) * self.w_spectacle
++
++        rewards["total"] = rewards["goal"] + rewards["dense"] + rewards["spec"]
++        return rewards
+diff --git a/docs/Project_Analysis.md b/docs/Project_Analysis.md
+new file mode 100644
+index 0000000..7c6f385
+--- /dev/null
++++ b/docs/Project_Analysis.md
+@@ -0,0 +1,60 @@
++# Анализ проекта Neon Gridiron ULTRA
++
++## Краткий вывод
++
++Проект выглядит как амбициозный **MVP-платформы для детерминированной спортивной симуляции + live-телеметрии + RL-обучения**, но сейчас репозиторий находится в **частично несогласованном состоянии**: архитектурные документы и часть модулей хорошо описаны, однако есть критичные разрывы между слоями (особенно `ai.env`, UI-слой и дубли серверной логики), из-за которых базовые проверки не проходят.
++
++## Что в проекте уже хорошо
++
++- В `docs/Architecture.md` и `sim/core/*` есть ясная доменная модель: состояние матча, физика, события, конфиги.
++- Наличие строгой идеи детерминизма (seed, fixed dt, проверка повторяемости).
++- Разделение на подсистемы (`sim`, `ai`, `server`, `telemetry`, `ui`) облегчает дальнейшую модульную стабилизацию.
++
++## Критичные проблемы (блокируют работоспособность)
++
++1. **Отсутствует модуль среды, на который завязаны тесты.**
++   - Все тесты импортируют `ai.env.neon_env.NeonFootballEnv`, но директории `ai/env` в репозитории нет.
++   - В результате `pytest` падает уже на стадии collection (`ModuleNotFoundError: No module named 'ai.env'`).
++
++2. **UI-часть ссылается на отсутствующие модули.**
++   - `ui/app/live/page.tsx` импортирует `../../lib/ws` и `../../lib/frame`, но в `ui/` нет папки `lib`.
++   - Страница live в текущем виде не может собраться в Next.js.
++
++3. **Дублирование и рассинхронизация серверного слоя.**
++   - Есть два пути для bridge/ingest логики: `server/bridge.py` и связка `server/app.py` + `server/udp_ingest.py` + `server/ws_hub.py`.
++   - Порты и семантика отличаются (`5555` в `TelemetryBridge` vs `4242` в `UDPIngest`), что повышает риск запуска «не той» цепочки.
++
++4. **Большой технический долг по статическому качеству.**
++   - `ruff check .` показывает десятки нарушений (неиспользуемые импорты, порядок импортов, undefined names, переменные без использования).
++   - Есть как минимум один потенциально функциональный дефект: использование `F.mse_loss` без импорта `torch.nn.functional as F` в `ai/training/dreamer.py`.
++
++## Наблюдения по готовности
++
++- **Продуктовая идея и каркас:** сильные.
++- **Инженерная готовность к воспроизводимому запуску:** низкая на текущем коммите.
++- **Готовность к CI/CD:** низкая (базовые тесты и линт не green).
++
++## Приоритетный план стабилизации
++
++### P0 (сделать первым)
++
++1. Восстановить/добавить `ai/env/neon_env.py` (или переписать тесты под фактически существующую среду).
++2. Либо реализовать `ui/lib/{ws,frame}.ts`, либо удалить/заменить импорты live-страницы на реальные модули.
++3. Выбрать **один** серверный путь (рекомендация: оставить `server/app.py` как canonical API entrypoint), второй пометить deprecated или удалить.
++
++### P1
++
++4. Привести `ruff` к нулю предупреждений как минимум в `sim`, `server`, `ai/training`.
++5. Включить минимальный CI пайплайн (`ruff + pytest`) на каждый push.
++6. Синхронизировать README-команды со «стабильным» запуском (какой именно скрипт поднимает полный стек).
++
++### P2
++
++7. Добавить smoke-тесты UI (хотя бы типовую сборку `npm run build`/`next build`).
++8. Добавить contract-тест на протокол телеметрии (один формат кадра от sim до ws клиента).
++
++## Риски, если не исправлять
++
++- Невозможность повторяемо запускать демо/исследования.
++- Расхождение командной и фактической архитектуры.
++- Рост стоимости изменений из-за дублирования сервисов и нестабильного API между слоями.
+diff --git a/scripts/benchmark_ultra.py b/scripts/benchmark_ultra.py
+index da8c51b..582e4fb 100644
+--- a/scripts/benchmark_ultra.py
++++ b/scripts/benchmark_ultra.py
+@@ -1,7 +1,8 @@
+ import time
+-import numpy as np
++
+ from ai.env.neon_env import NeonFootballEnv
+ 
++
+ def run_benchmark(steps: int = 1000):
+     print(f"Starting ULTRA Benchmark ({steps} steps)...")
+     env = NeonFootballEnv({"team_size": 7})
+diff --git a/scripts/benchmark_vec_env.py b/scripts/benchmark_vec_env.py
+index a13c3e1..79de1b4 100644
+--- a/scripts/benchmark_vec_env.py
++++ b/scripts/benchmark_vec_env.py
+@@ -1,7 +1,10 @@
+-import torch
+ import time
++
++import torch
++
+ from ai.env.ultra_vec_env import UltraVectorizedEnv
+ 
++
+ def run_benchmark(num_envs=1024, num_steps=1000, device="cuda"):
+     print(f"🚀 ULTRA Benchmark: {num_envs} envs, {num_steps} steps, device={device}")
+     
+@@ -30,11 +33,11 @@ def run_benchmark(num_envs=1024, num_steps=1000, device="cuda"):
+     duration = end_time - start_time
+     sps = total_steps / duration
+     
+-    print(f"--------------------------------------")
++    print("--------------------------------------")
+     print(f"Execution Time: {duration:.2f} seconds")
+     print(f"Total Steps: {total_steps}")
+     print(f"Throughput: {sps:,.0f} STEPS/SEC")
+-    print(f"--------------------------------------")
++    print("--------------------------------------")
+ 
+ if __name__ == "__main__":
+     device = "cuda" if torch.cuda.is_available() else "cpu"
+diff --git a/scripts/league_db.py b/scripts/league_db.py
+index 8394ed8..6bcbbe9 100644
+--- a/scripts/league_db.py
++++ b/scripts/league_db.py
+@@ -1,7 +1,8 @@
+-import sqlite3
+ import json
++import sqlite3
+ from datetime import datetime
+-from typing import List, Dict
++from typing import Dict
++
+ 
+ class LeagueDB:
+     """
+diff --git a/scripts/live_runner.py b/scripts/live_runner.py
+index c5c71c2..0fabb58 100644
+--- a/scripts/live_runner.py
++++ b/scripts/live_runner.py
+@@ -1,11 +1,12 @@
+-import time
+ import socket
++import time
++
+ import msgpack
+-import numpy as np
+-from ai.env.neon_env import NeonFootballEnv
+ 
++from ai.env.neon_env import NeonFootballEnv
+ from ai.training.orchestrator import PBTTrainer
+ 
++
+ def run_live_sim(host="127.0.0.1", port=4242):
+     print(f"ULTRA Phase 2 Live Runner: {host}:{port}")
+     env = NeonFootballEnv({"team_size": 7})
+diff --git a/scripts/smoke_test_ultra.py b/scripts/smoke_test_ultra.py
+index 856faf2..7cb5f1c 100644
+--- a/scripts/smoke_test_ultra.py
++++ b/scripts/smoke_test_ultra.py
+@@ -1,6 +1,5 @@
+-import gymnasium as gym
+ from ai.env.neon_env import NeonFootballEnv
+-import numpy as np
++
+ 
+ def smoke_test():
+     print("Starting ULTRA Vertical Slice Smoke Test...")
+diff --git a/scripts/stress_test_ultra.py b/scripts/stress_test_ultra.py
+index 0250a9c..38e6f80 100644
+--- a/scripts/stress_test_ultra.py
++++ b/scripts/stress_test_ultra.py
+@@ -1,12 +1,15 @@
+-import torch
+ import time
++
++import torch
++
+ from ai.env.ultra_vec_env import UltraVectorizedEnv
+ 
++
+ def run_stress_test(num_envs=4096, num_steps=500, device="cuda"):
+-    print(f"🔥 ULTRA GLOBAL STRESS TEST")
+-    print(f"Targeting 1,000,000 Steps/Sec Milestone")
++    print("🔥 ULTRA GLOBAL STRESS TEST")
++    print("Targeting 1,000,000 Steps/Sec Milestone")
+     print(f"Configuration: {num_envs} envs, {num_steps} steps, device={device}")
+-    print(f"--------------------------------------")
++    print("--------------------------------------")
+     
+     env = UltraVectorizedEnv(num_envs=num_envs, device=device)
+     env.reset()
+@@ -31,19 +34,19 @@ def run_stress_test(num_envs=4096, num_steps=500, device="cuda"):
+     duration = end_time - start_time
+     sps = total_steps / duration
+     
+-    print(f"Match results [First 5 Envs]:")
++    print("Match results [First 5 Envs]:")
+     print(env.phys.pos[:5, 0, :]) # Ball pos of first 5 envs
+     
+-    print(f"--------------------------------------")
++    print("--------------------------------------")
+     print(f"Execution Time: {duration:.4f} seconds")
+     print(f"Total Steps: {total_steps:,}")
+     print(f"FINAL THROUGHPUT: {sps:,.0f} STEPS/SEC")
+     
+     if sps >= 1000000:
+-        print(f"✅ 1M MILESTONE ACHIEVED")
++        print("✅ 1M MILESTONE ACHIEVED")
+     else:
+         print(f"⚠️ Milestone missed (Currently at {sps:,.0f} SPS)")
+-    print(f"--------------------------------------")
++    print("--------------------------------------")
+ 
+ if __name__ == "__main__":
+     device = "cuda" if torch.cuda.is_available() else "cpu"
+diff --git a/server/app.py b/server/app.py
+index 7cc46ec..de0b412 100644
+--- a/server/app.py
++++ b/server/app.py
+@@ -1,7 +1,9 @@
+ import asyncio
++
+ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+-from .ws_hub import hub
++
+ from .udp_ingest import ingest
++from .ws_hub import hub
+ 
+ app = FastAPI(title="Neon Gridiron ULTRA: Telemetry Hub v2")
+ 
+diff --git a/server/bridge.py b/server/bridge.py
+index 8efd26a..8bc48b9 100644
+--- a/server/bridge.py
++++ b/server/bridge.py
+@@ -1,9 +1,10 @@
+ import asyncio
+ import socket
++from typing import Set
++
+ import msgpack
+-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+-from typing import List, Set
+ import uvicorn
++from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+ 
+ app = FastAPI()
+ 
+@@ -45,7 +46,7 @@ class TelemetryBridge:
+             try:
+                 data, addr = await loop.sock_recvfrom(sock, 65535)
+                 await self.broadcast(data)
+-            except Exception as e:
++            except Exception:
+                 await asyncio.sleep(0.001)
+ 
+ bridge = TelemetryBridge()
+diff --git a/server/frame_protocol.py b/server/frame_protocol.py
+index d574608..e89bfd5 100644
+--- a/server/frame_protocol.py
++++ b/server/frame_protocol.py
+@@ -1,5 +1,6 @@
+-from dataclasses import dataclass, asdict, field
+-from typing import List, Dict, Any, Optional, Union
++from dataclasses import asdict, dataclass, field
++from typing import Any, Dict, List
++
+ 
+ @dataclass
+ class BallFrame:
+diff --git a/server/udp_ingest.py b/server/udp_ingest.py
+index 12cae3e..9018d0d 100644
+--- a/server/udp_ingest.py
++++ b/server/udp_ingest.py
+@@ -1,8 +1,11 @@
+ import asyncio
+ import socket
++
+ import msgpack
+-from .ws_hub import hub
++
+ from .frame_protocol import normalize_frame
++from .ws_hub import hub
++
+ 
+ class UDPIngest:
+     """Ingests legacy UDP telemetry and pushes it to the WS hub."""
+@@ -29,7 +32,7 @@ class UDPIngest:
+                 
+                 # 3. Push to hub
+                 hub.push_frame(canonical)
+-            except Exception as e:
++            except Exception:
+                 # Tight loop, minimal sleep on error
+                 await asyncio.sleep(0.001)
+ 
+diff --git a/server/ws_hub.py b/server/ws_hub.py
+index a762b82..8222de6 100644
+--- a/server/ws_hub.py
++++ b/server/ws_hub.py
+@@ -1,8 +1,10 @@
+ import asyncio
+ import json
+ from typing import Set
++
+ from fastapi import WebSocket
+ 
++
+ class WebSocketHub:
+     """Manages WebSocket clients and handles real-time broadcasting."""
+     def __init__(self):
+diff --git a/sim/core/abilities.py b/sim/core/abilities.py
+index 7c76471..1ab8d52 100644
+--- a/sim/core/abilities.py
++++ b/sim/core/abilities.py
+@@ -1,6 +1,9 @@
++import os
+ from dataclasses import dataclass
+ from typing import Dict, List, Optional
+ 
++import yaml
++
+ from sim.core.state import PlayerState
+ 
+ 
+@@ -14,9 +17,6 @@ class Ability:
+     heat_per_use: float
+ 
+ 
+-import yaml
+-import os
+-
+ class AbilityManager:
+     """
+     Manages casting, cooldowns, and resource pools for player bots.
+@@ -24,23 +24,41 @@ class AbilityManager:
+     """
+ 
+     def __init__(self, config_path: str = "configs/abilities_core.yaml"):
+-        self.cooldowns: Dict[str, Dict[str, int]] = {}  # player_id -> {ability_id -> tick_ready}
++        self.cooldowns: Dict[str, Dict[str, int]] = {}
+         self.registry: Dict[str, Ability] = self._init_registry(config_path)
+ 
+     def _init_registry(self, config_path: str) -> Dict[str, Ability]:
+         if os.path.exists(config_path):
+-            with open(config_path, 'r') as f:
++            with open(config_path, "r") as f:
+                 cfg = yaml.safe_load(f)
+                 abs_cfg = cfg.get("abilities", {})
+                 return {
+-                    "dash": Ability("dash", "Neon Dash", 10.0, abs_cfg.get("dash", {}).get("stamina_cost", 25.0), 
+-                                  abs_cfg.get("dash", {}).get("cooldown_ticks", 60), 10.0),
+-                    "shield": Ability("shield", "Plasma Shield", 30.0, abs_cfg.get("shield", {}).get("stamina_cost", 40.0),
+-                                    abs_cfg.get("shield", {}).get("cooldown_ticks", 120), 20.0),
+-                    "surge": Ability("surge", "Overdrive", 50.0, abs_cfg.get("surge", {}).get("stamina_cost", 50.0),
+-                                   abs_cfg.get("surge", {}).get("cooldown_ticks", 300), 40.0),
++                    "dash": Ability(
++                        "dash",
++                        "Neon Dash",
++                        10.0,
++                        abs_cfg.get("dash", {}).get("stamina_cost", 25.0),
++                        abs_cfg.get("dash", {}).get("cooldown_ticks", 60),
++                        10.0,
++                    ),
++                    "shield": Ability(
++                        "shield",
++                        "Plasma Shield",
++                        30.0,
++                        abs_cfg.get("shield", {}).get("stamina_cost", 40.0),
++                        abs_cfg.get("shield", {}).get("cooldown_ticks", 120),
++                        20.0,
++                    ),
++                    "surge": Ability(
++                        "surge",
++                        "Overdrive",
++                        50.0,
++                        abs_cfg.get("surge", {}).get("stamina_cost", 50.0),
++                        abs_cfg.get("surge", {}).get("cooldown_ticks", 300),
++                        40.0,
++                    ),
+                 }
+-        
++
+         return {
+             "dash": Ability("dash", "Neon Dash", 10.0, 5.0, 120, 20.0),
+             "blast": Ability("blast", "Sonic Blast", 40.0, 10.0, 300, 50.0),
+@@ -52,13 +70,9 @@ class AbilityManager:
+         if not ability:
+             return False
+ 
+-        # Resource checks
+-        if player.energy < ability.energy_cost:
++        if player.energy < ability.energy_cost or player.heat > 90.0:
+             return False
+-        if player.heat > 90.0:
+-            return False  # Overheated state
+ 
+-        # Cooldown checks
+         p_cd = self.cooldowns.get(player.id, {})
+         if tick < p_cd.get(ability_id, 0):
+             return False
+@@ -74,12 +88,11 @@ class AbilityManager:
+         player.stamina -= ability.stamina_penalty
+         player.heat += ability.heat_per_use
+ 
+-        # Set cooldown
+         self.cooldowns.setdefault(player.id, {})[ability_id] = tick + ability.cooldown_ticks
+         return ability
+ 
+     def update(self, players: List[PlayerState]):
+         """Decay heat and regen energy over time."""
+-        for p in players:
+-            p.heat = max(0.0, p.heat * 0.99)
+-            p.energy = min(100.0, p.energy + 0.2)
++        for player in players:
++            player.heat = max(0.0, player.heat * 0.99)
++            player.energy = min(100.0, player.energy + 0.2)
+diff --git a/sim/core/serialization.py b/sim/core/serialization.py
+index 85c4042..ffd5efe 100644
+--- a/sim/core/serialization.py
++++ b/sim/core/serialization.py
+@@ -1,13 +1,17 @@
+-import msgpack
+ import os
+-from typing import List, Any
++from typing import List, Optional
++
++import msgpack
++
+ from telemetry.frame import TelemetryFrame
+ 
++
+ class ReplayRecorder:
+     """
+     Standard match archival for Neon Gridiron ULTRA.
+     Records sequences of TelemetryFrames and saves them as compressed msgpack files.
+     """
++
+     def __init__(self, match_id: str, save_dir: str = "data/replays"):
+         self.match_id = match_id
+         self.save_dir = save_dir
+@@ -20,14 +24,15 @@ class ReplayRecorder:
+     def save(self):
+         filename = f"{self.match_id}_{int(os.path.getmtime('.'))}.neon_replay"
+         path = os.path.join(self.save_dir, filename)
+-        with open(path, 'wb') as f:
++        with open(path, "wb") as f:
+             f.write(msgpack.packb(self.frames, use_bin_type=True))
+         print(f"Replay saved: {path} ({len(self.frames)} frames)")
+ 
++
+ class ReplayLoader:
+     def __init__(self, file_path: str):
+         self.file_path = file_path
+-        with open(file_path, 'rb') as f:
++        with open(file_path, "rb") as f:
+             self.frames = msgpack.unpackb(f.read(), raw=False)
+ 
+     def get_frame(self, tick: int) -> Optional[dict]:
+diff --git a/sim/core/state.py b/sim/core/state.py
+index c97753a..aab82c7 100644
+--- a/sim/core/state.py
++++ b/sim/core/state.py
+@@ -1,9 +1,12 @@
+ from __future__ import annotations
++
+ from dataclasses import dataclass, field
+ from enum import Enum
+-from typing import Any, Dict, List, Optional, Tuple
++from typing import Any, Dict, List, Optional
++
+ import numpy as np
+ 
++
+ class TeamID(Enum):
+     BLUE = 0
+     RED = 1
+diff --git a/sim/ultra/vectorized_phys.py b/sim/ultra/vectorized_phys.py
+index 3e8e932..1740dd1 100644
+--- a/sim/ultra/vectorized_phys.py
++++ b/sim/ultra/vectorized_phys.py
+@@ -1,6 +1,7 @@
++from typing import Dict
++
+ import torch
+-import torch.nn as nn
+-from typing import Dict, Any
++
+ 
+ class VectorizedNeonPhysics:
+     """
+diff --git a/telemetry/frame.py b/telemetry/frame.py
+index 7efd263..85236d4 100644
+--- a/telemetry/frame.py
++++ b/telemetry/frame.py
+@@ -1,9 +1,11 @@
+ from __future__ import annotations
++
+ from dataclasses import dataclass, field
+-from typing import Dict, List, Optional, Tuple, Any
+-import numpy as np
++from typing import Any, Dict, List, Tuple
++
+ import msgpack
+ 
++
+ @dataclass(frozen=True)
+ class TelemetryFrame:
+     """
+diff --git a/tools/validate_configs.py b/tools/validate_configs.py
+index 99a4301..a404eb5 100644
+--- a/tools/validate_configs.py
++++ b/tools/validate_configs.py
+@@ -1,25 +1,27 @@
+-import yaml
+-import sys
+ import os
++import sys
++
++import yaml
++
+ 
+ def validate():
+     config_dir = "configs"
+     required_files = ["match_rules.yaml", "rewards.yaml", "abilities_core.yaml"]
+ 
+-    for f in required_files:
+-        path = os.path.join(config_dir, f)
++    for file_name in required_files:
++        path = os.path.join(config_dir, file_name)
+         if not os.path.exists(path):
+-            print(f"CRITICAL: Missing config {f}")
+-            # Don't exit here to allow checking others
++            print(f"CRITICAL: Missing config {file_name}")
+             continue
+ 
+-        with open(path, 'r') as stream:
++        with open(path, "r") as stream:
+             try:
+-                data = yaml.safe_load(stream)
+-                print(f"OK: {f} is valid YAML")
+-            except Exception as e:
+-                print(f"FAIL: {f} syntax error: {e}")
++                yaml.safe_load(stream)
++                print(f"OK: {file_name} is valid YAML")
++            except Exception as exc:
++                print(f"FAIL: {file_name} syntax error: {exc}")
+                 sys.exit(1)
+ 
++
+ if __name__ == "__main__":
+     validate()
+diff --git a/ui/lib/frame.ts b/ui/lib/frame.ts
+new file mode 100644
+index 0000000..a80fd3d
+--- /dev/null
++++ b/ui/lib/frame.ts
+@@ -0,0 +1,38 @@
++export type PlayerFrame = {
++  id: string;
++  team: string;
++  pos: [number, number];
++  vel: [number, number];
++};
++
++export type Frame = {
++  tick: number;
++  score: [number, number];
++  ball: { pos: [number, number]; vel?: [number, number] };
++  players: PlayerFrame[];
++  overlays?: { attn?: number[][] };
++};
++
++export function normalizeFrame(raw: Record<string, unknown>): Frame {
++  const scoreRaw = Array.isArray(raw.s) ? raw.s : [0, 0];
++  const ballPos = Array.isArray(raw.b) ? raw.b : [300, 200];
++  const playersRaw = Array.isArray(raw.p) ? raw.p : [];
++
++  const players = playersRaw.map((p) => {
++    const player = p as Record<string, unknown>;
++    return {
++      id: String(player.id ?? "unknown"),
++      team: String(player.team ?? "BLUE"),
++      pos: (Array.isArray(player.pos) ? player.pos : [0, 0]) as [number, number],
++      vel: (Array.isArray(player.vel) ? player.vel : [0, 0]) as [number, number],
++    };
++  });
++
++  return {
++    tick: Number(raw.t ?? 0),
++    score: [Number(scoreRaw[0] ?? 0), Number(scoreRaw[1] ?? 0)],
++    ball: { pos: [Number(ballPos[0] ?? 300), Number(ballPos[1] ?? 200)] },
++    players,
++    overlays: (raw.o as { attn?: number[][] } | undefined) ?? {},
++  };
++}
+diff --git a/ui/lib/ws.ts b/ui/lib/ws.ts
+new file mode 100644
+index 0000000..edfdc30
+--- /dev/null
++++ b/ui/lib/ws.ts
+@@ -0,0 +1,27 @@
++import { Frame, normalizeFrame } from "./frame";
++
++export class UltraWSClient {
++  private ws: WebSocket | null = null;
++
++  constructor(
++    private readonly url: string,
++    private readonly onFrame: (frame: Frame) => void,
++  ) {}
++
++  connect(): void {
++    this.ws = new WebSocket(this.url);
++    this.ws.onmessage = (event) => {
++      try {
++        const parsed = JSON.parse(event.data) as Record<string, unknown>;
++        this.onFrame(normalizeFrame(parsed));
++      } catch {
++        // Ignore malformed frames.
++      }
++    };
++  }
++
++  close(): void {
++    this.ws?.close();
++    this.ws = null;
++  }
++}
+-- 
+2.43.0
+
