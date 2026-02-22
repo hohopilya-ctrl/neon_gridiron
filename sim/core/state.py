@@ -51,15 +51,23 @@ class PlayerConfig:
     base_power: float = 1.0
 
 
+class PlayerRole(Enum):
+    GK = "GOALKEEPER"
+    DEF = "DEFENDER"
+    MID = "MIDFIELDER"
+    FWD = "FORWARD"
+
+
 @dataclass
 class PlayerState:
     id: str
     team: TeamID
+    role: PlayerRole = PlayerRole.MID
     pos: np.ndarray = field(default_factory=lambda: np.zeros(2))
     vel: np.ndarray = field(default_factory=lambda: np.zeros(2))
-    stamina: float = 100.0
+    stamina: float = 100.0  # Current stamina (short-term)
+    energy: float = 100.0   # Total energy (long-term fatigue)
     heat: float = 0.0
-    energy: float = 100.0
     active_tags: List[str] = field(default_factory=list)
     dash_cooldown: int = 0
 
@@ -102,6 +110,12 @@ class MatchState:
     players: List[PlayerState] = field(default_factory=list)
     ball: BallState = field(default_factory=BallState)
     events: List[MatchEvent] = field(default_factory=list)
+    
+    # Meta-tactical state
+    possession_team: Optional[TeamID] = None
+    possession_player_id: Optional[str] = None
+    pressure_index: float = 0.0
+    
     spectacle_score: float = 0.0
     physics_dt: float = 1.0 / 60.0
     config: Optional[MatchConfig] = None

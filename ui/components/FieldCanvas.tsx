@@ -68,15 +68,47 @@ export default function FieldCanvas({ frame }: { frame: Frame | null }) {
             ctx.shadowBlur = 0;
         }
 
-        // Overlays (Phase 26 logic)
+        // Analyst Overlays: Compactness & Pressure
+        if (frame.compactness) {
+            Object.entries(frame.compactness).forEach(([team, score]) => {
+                const isBlue = team.includes('BLUE');
+                const teamPlayers = frame.players.filter(p => p.team === (isBlue ? 'BLUE' : 'RED'));
+                if (teamPlayers.length === 0) return;
+
+                const centroidX = teamPlayers.reduce((a, b) => a + b.pos[0], 0) / teamPlayers.length;
+                const centroidY = teamPlayers.reduce((a, b) => a + b.pos[1], 0) / teamPlayers.length;
+
+                // Draw Compactness Ring
+                ctx.strokeStyle = isBlue ? `rgba(59, 130, 246, ${score * 0.3})` : `rgba(244, 63, 94, ${score * 0.3})`;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.arc(centroidX, centroidY, 60, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+            });
+        }
+
+        if (frame.pressure !== undefined && frame.ball) {
+            const bp = frame.ball.pos;
+            ctx.strokeStyle = `rgba(255, 255, 255, ${frame.pressure * 0.5})`;
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(bp[0], bp[1], 15 + frame.pressure * 20, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        // Overlays (Attention links)
         if (frame.overlays?.attn && frame.players) {
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
             ctx.lineWidth = 1;
             const players = frame.players;
-            for (let i = 0; i < players.length; i++) {
-                for (let j = i + 1; j < players.length; j++) {
-                    const weight = frame.overlays.attn[i][j] || 0;
-                    if (weight > 0.5) {
+            // Assuming 14x14 attention map
+            for (let i = 0; i < Math.min(players.length, 14); i++) {
+                for (let j = i + 1; j < Math.min(players.length, 14); j++) {
+                    const row = frame.overlays.attn[i];
+                    if (!row) continue;
+                    const weight = row[j] || 0;
+                    if (weight > 0.3) {
                         ctx.beginPath();
                         ctx.moveTo(players[i].pos[0], players[i].pos[1]);
                         ctx.lineTo(players[j].pos[0], players[j].pos[1]);

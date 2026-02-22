@@ -29,6 +29,9 @@ class FrameV220:
     players: List[PlayerFrame] = field(default_factory=list)
     events: List[Any] = field(default_factory=list)
     overlays: Dict[str, Any] = field(default_factory=dict)
+    # Analyst metrics
+    pressure: float = 0.0
+    compactness: Dict[str, float] = field(default_factory=dict)
 
 
 def convert_legacy_to_frame(legacy: Dict[str, Any]) -> Dict[str, Any]:
@@ -67,6 +70,8 @@ def convert_legacy_to_frame(legacy: Dict[str, Any]) -> Dict[str, Any]:
         players=players,
         events=legacy.get("e", []),
         overlays=legacy.get("o", {}),
+        pressure=legacy.get("pressure", 0.0),
+        compactness=legacy.get("compactness", {}),
     )
 
     return asdict(frame)

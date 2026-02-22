@@ -29,11 +29,10 @@ class RulesEngine:
                 return TeamID.BLUE  # Red team conceded
         return None
 
-    def check_out_of_bounds(self, ball_pos: np.ndarray) -> Optional[str]:
-        """Detect ball exiting the field (Corner, Throw-in, Goal Kick)."""
-        x, y = ball_pos
-        if x < 0 or x > self.width or y < 0 or y > self.height:
-            if self.goal_y_range[0] < y < self.goal_y_range[1]:
-                return None  # It's a goal check, handled elsewhere
-            return "OUT_OF_BOUNDS"
-        return None
+    def check_tackle(self, p1_pos: np.ndarray, p2_pos: np.ndarray) -> bool:
+        """Detect if a tackle attempt is physically possible."""
+        return np.linalg.norm(p1_pos - p2_pos) < 25.0
+
+    def check_interaction(self, player_pos: np.ndarray, ball_pos: np.ndarray) -> bool:
+        """Verify if player is close enough to interact with the ball."""
+        return np.linalg.norm(player_pos - ball_pos) < 20.0

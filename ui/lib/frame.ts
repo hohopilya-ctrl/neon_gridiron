@@ -11,6 +11,8 @@ export type Frame = {
   ball: { pos: [number, number]; vel?: [number, number] };
   players: PlayerFrame[];
   overlays?: { attn?: number[][] };
+  pressure?: number;
+  compactness?: Record<string, number>;
 };
 
 export function normalizeFrame(raw: Record<string, unknown>): Frame {
@@ -34,5 +36,7 @@ export function normalizeFrame(raw: Record<string, unknown>): Frame {
     ball: { pos: [Number(ballPos[0] ?? 300), Number(ballPos[1] ?? 200)] },
     players,
     overlays: (raw.o as { attn?: number[][] } | undefined) ?? {},
+    pressure: Number(raw.pressure ?? 0),
+    compactness: (raw.compactness as Record<string, number> | undefined) ?? {},
   };
 }

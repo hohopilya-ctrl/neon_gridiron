@@ -33,7 +33,7 @@ def run_live_sim(host="127.0.0.1", port=4242):
 
             # Metadata-rich Frame
             frame = env.get_telemetry_frame()
-            packed = msgpack.packb(frame.to_dict(), use_bin_type=True)
+            packed = msgpack.packb(frame, use_bin_type=True)
 
             sock.sendto(packed, (host, port))
 

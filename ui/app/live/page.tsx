@@ -30,8 +30,12 @@ export default function LiveMatch() {
                             </span>
                         </div>
                         <div className="bg-slate-900 px-4 py-2 rounded-lg border border-slate-700">
+                            <span className="text-slate-500 text-xs block">PRESSURE INDEX</span>
+                            <span className="text-cyan-400 font-bold text-xl">{(frame.pressure || 0).toFixed(2)}</span>
+                        </div>
+                        <div className="bg-slate-900 px-4 py-2 rounded-lg border border-slate-700">
                             <span className="text-slate-500 text-xs block">SIM TICK</span>
-                            <span className="text-cyan-400 font-bold text-xl">#{frame.tick}</span>
+                            <span className="text-slate-400 font-bold text-xl">#{frame.tick}</span>
                         </div>
                     </div>
                 )}

@@ -88,6 +88,12 @@ class PhysicsEngine:
         multiplier = 2000.0 if not dash else 5000.0
         body.apply_force_at_local_point((force[0] * multiplier, force[1] * multiplier))
 
+    def apply_ball_impulse(self, force: Tuple[float, float]):
+        """Apply a directed impulse to the ball."""
+        if self.ball_elements:
+            body, _ = self.ball_elements
+            body.apply_impulse_at_local_point((force[0] * 50.0, force[1] * 50.0))
+
     def get_player_data(self, player_id: str) -> Tuple[np.ndarray, np.ndarray]:
         body, _ = self.player_map[player_id]
         return np.array(body.position), np.array(body.velocity)

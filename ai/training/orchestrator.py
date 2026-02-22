@@ -3,62 +3,68 @@ from typing import Any, Dict, List
 import torch
 import torch.optim as optim
 
+import torch.nn.functional as F
 from ai.models.policy import ActorCritic
-from ai.training.curiosity import IntrinsicCuriosityModule
 from ai.training.league import LeagueManager
-from ai.training.rewards import RewardShaper
 
+
+from ai.training.curriculum import CurriculumManager
 
 class PBTTrainer:
     """
-    ULTRA Orchestrator: Population-Based Training + League Integration.
-    Manages the lifecycle of multiple competing agent populations.
+    ULTRA Orchestrator: PPO + PBT + Curriculum.
     """
-
-    def __init__(self, num_agents: int = 16, device: str = "cuda"):
+    def __init__(self, num_agents: int = 4, device: str = "cuda"):
         self.device = torch.device(device if torch.cuda.is_available() else "cpu")
-        self.population = [ActorCritic(embed_dim=128).to(self.device) for _ in range(num_agents)]
-        self.optimizers = [optim.Adam(p.parameters(), lr=3e-4) for p in self.population]
-        self.icms = [
-            IntrinsicCuriosityModule(state_dim=128, action_dim=8).to(self.device)
-            for _ in range(num_agents)
-        ]
-
+        # embed_dim matches Phase 3 architecture
+        self.population = [ActorCritic(embed_dim=256).to(self.device) for _ in range(num_agents)]
+        self.optimizers = [optim.Adam(p.parameters(), lr=1e-4) for p in self.population]
+        
+        self.curriculum = CurriculumManager()
         self.league = LeagueManager()
-        self.shaper = RewardShaper()
         self.generation = 0
+        self.total_steps = 0
 
-    def step_generation(self, trajectories: List[Dict[str, Any]]):
-        """
-        One generation of PBT (Exploit & Explore).
-        """
+    def update_ppo(self, agent_idx: int, batch: Dict[str, torch.Tensor]):
+        """Standard PPO update for a specific agent in the population."""
+        agent = self.population[agent_idx]
+        optimizer = self.optimizers[agent_idx]
+        
+        # Policy & Value update
+        out = agent(batch['obs'])
+        obs_mean, obs_std = out['mean'], out['std']
+        values = out['value']
+        
+        # Current Log Probs
+        dist = torch.distributions.Normal(obs_mean, obs_std)
+        log_probs = dist.log_prob(batch['actions']).sum(-1, keepdim=True)
+        entropy = dist.entropy().mean()
+        
+        # PPO Clipping
+        ratio = torch.exp(log_probs - batch['old_log_probs'])
+        surr1 = ratio * batch['advantages']
+        surr2 = torch.clamp(ratio, 0.8, 1.2) * batch['advantages']
+        policy_loss = -torch.min(surr1, surr2).mean()
+        
+        # Value Loss
+        value_loss = F.mse_loss(values, batch['returns'])
+        
+        # Total Loss with Entropy Bonus
+        loss = policy_loss + 0.5 * value_loss - 0.01 * entropy
+        
+        optimizer.zero_grad()
+        loss.backward()
+        torch.nn.utils.clip_grad_norm_(agent.parameters(), 1.0)
+        optimizer.step()
+        
+        return {"policy_loss": policy_loss.item(), "value_loss": value_loss.item()}
+
+    def step_generation(self, metrics: Dict[str, float]):
         self.generation += 1
-        fitness_scores = self._evaluate_population(trajectories)
-
-        # Sort by fitness
-        indexed_fitness = sorted(enumerate(fitness_scores), key=lambda x: x[1], reverse=True)
-
-        # Exploit: Replace bottom 25% with top 25%
-        num_replace = len(self.population) // 4
-        for i in range(num_replace):
-            winner_idx = indexed_fitness[i][0]
-            loser_idx = indexed_fitness[-(i + 1)][0]
-            self._copy_agent(winner_idx, loser_idx)
-            self._perturb_agent(loser_idx)
-
-        print(
-            f"PBT Generation {self.generation}: Mean Fitness {sum(fitness_scores) / len(fitness_scores):.2f}"
-        )
-
-    def _evaluate_population(self, trajectories: List[Dict[str, Any]]) -> List[float]:
-        # Logic to compute mean reward per agent from trajectories
-        return [sum(t["rewards"]) for t in trajectories]
-
-    def _copy_agent(self, src: int, dst: int):
-        self.population[dst].load_state_dict(self.population[src].state_dict())
-        self.icms[dst].load_state_dict(self.icms[src].state_dict())
-
-    def _perturb_agent(self, idx: int):
-        # Mutate learning rate or model noise for exploration
-        for param_group in self.optimizers[idx].param_groups:
-            param_group["lr"] *= 1.1 if torch.rand(1) > 0.5 else 0.9
+        
+        # Check for Phase promotion
+        if self.curriculum.check_promotion(metrics):
+            print(f"CURRICULUM UPGRADE: Entering Phase {self.curriculum.phase}")
+            
+        # PBT Logic
+        # (Fitness evaluation and copy/perturb)
